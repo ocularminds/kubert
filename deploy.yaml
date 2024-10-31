@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kubert
+  namespace: your-app-namespace
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kubert
+  template:
+    metadata:
+      labels:
+        app: kubert
+    spec:
+      containers:
+        - name: kubert
+          image: <your-java-application-image>
+          env:
+            - name: DOCKER_HUB_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: docker-hub-credentials
+                  key: username
+            - name: DOCKER_HUB_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: docker-hub-credentials
+                  key: token
