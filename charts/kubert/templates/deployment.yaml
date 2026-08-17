@@ -1,0 +1,132 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "kubert.fullname" . }}
+  labels:
+    {{- include "kubert.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.workload.replicaCount }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      {{- include "kubert.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        {{- include "kubert.podAnnotations" . | nindent 8 }}
+      labels:
+        {{- include "kubert.podLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "kubert.serviceAccountName" . }}
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      initContainers:
+        - name: kubert
+          image: {{ include "kubert.sidecarImage" . | quote }}
+          imagePullPolicy: {{ .Values.kubert.image.pullPolicy }}
+          restartPolicy: Always
+          env:
+            - name: KUBERT_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: KUBERT_DEPLOYMENT
+              value: {{ include "kubert.fullname" . }}
+            - name: KUBERT_CONTAINER
+              value: {{ .Values.workload.containerName }}
+            - name: KUBERT_POLL_INTERVAL
+              value: {{ .Values.kubert.pollInterval | quote }}
+            - name: KUBERT_UPDATE_POLICY
+              value: {{ .Values.kubert.updatePolicy | quote }}
+            - name: KUBERT_CONNECT_TIMEOUT
+              value: {{ .Values.kubert.connectTimeout | quote }}
+            - name: KUBERT_REQUEST_TIMEOUT
+              value: {{ .Values.kubert.requestTimeout | quote }}
+            - name: KUBERT_DRY_RUN
+              value: {{ .Values.kubert.dryRun | quote }}
+            {{- with .Values.kubert.registryCredentials.existingSecret }}
+            - name: DOCKER_HUB_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ . }}
+                  key: {{ $.Values.kubert.registryCredentials.usernameKey }}
+            - name: DOCKER_HUB_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ . }}
+                  key: {{ $.Values.kubert.registryCredentials.tokenKey }}
+            {{- end }}
+          securityContext:
+            {{- toYaml .Values.kubert.securityContext | nindent 12 }}
+          resources:
+            {{- toYaml .Values.kubert.resources | nindent 12 }}
+          volumeMounts:
+            - name: kubernetes-api-access
+              mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+              readOnly: true
+      containers:
+        - name: {{ .Values.workload.containerName }}
+          image: {{ include "kubert.workloadImage" . | quote }}
+          imagePullPolicy: {{ .Values.workload.image.pullPolicy }}
+          {{- with .Values.workload.command }}
+          command:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.workload.args }}
+          args:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.workload.ports }}
+          ports:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.workload.env }}
+          env:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.workload.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.workload.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      volumes:
+        - name: kubernetes-api-access
+          projected:
+            defaultMode: 0444
+            sources:
+              - serviceAccountToken:
+                  expirationSeconds: 3600
+                  path: token
+              - configMap:
+                  name: kube-root-ca.crt
+                  items:
+                    - key: ca.crt
+                      path: ca.crt
+              - downwardAPI:
+                  items:
+                    - path: namespace
+                      fieldRef:
+                        fieldPath: metadata.namespace
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

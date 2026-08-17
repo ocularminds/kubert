@@ -1,0 +1,11 @@
+.git
+.github
+.gradle
+.idea
+build
+charts
+docs
+
+*.iml
+*.log
+deploy.yaml

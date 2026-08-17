@@ -40,7 +40,7 @@ public final class KubertApplication {
                     config.requestTimeout());
             DeploymentMonitor monitor = new DeploymentMonitor(
                     new Fabric8DeploymentRepository(kubernetesClient),
-                    new DockerHubImageResolver(registryClient),
+                    new DockerHubImageResolver(registryClient, config.updatePolicy()),
                     config.target(),
                     config.dryRun());
             try (PollingRunner runner = new PollingRunner(monitor, config.pollInterval())) {

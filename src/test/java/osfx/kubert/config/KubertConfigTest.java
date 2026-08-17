@@ -9,6 +9,7 @@ import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
+import osfx.kubert.service.UpdatePolicy;
 
 class KubertConfigTest {
     @Test
@@ -22,6 +23,7 @@ class KubertConfigTest {
         assertEquals(Duration.ofSeconds(5), config.connectTimeout());
         assertEquals(Duration.ofSeconds(15), config.requestTimeout());
         assertFalse(config.dryRun());
+        assertEquals(UpdatePolicy.PATCH, config.updatePolicy());
         assertTrue(config.registryCredentials().isEmpty());
     }
 
@@ -35,6 +37,7 @@ class KubertConfigTest {
                 "KUBERT_CONNECT_TIMEOUT", "PT2S",
                 "KUBERT_REQUEST_TIMEOUT", "PT8S",
                 "KUBERT_DRY_RUN", "TRUE",
+                "KUBERT_UPDATE_POLICY", "minor",
                 "DOCKER_HUB_USERNAME", "robot",
                 "DOCKER_HUB_TOKEN", "secret"));
 
@@ -43,6 +46,7 @@ class KubertConfigTest {
         assertEquals(Duration.ofSeconds(2), config.connectTimeout());
         assertEquals(Duration.ofSeconds(8), config.requestTimeout());
         assertTrue(config.dryRun());
+        assertEquals(UpdatePolicy.MINOR, config.updatePolicy());
         assertEquals("robot", config.registryCredentials().orElseThrow().identifier());
     }
 
@@ -63,7 +67,8 @@ class KubertConfigTest {
                 "KUBERT_POLL_INTERVAL", "PT9S",
                 "KUBERT_CONNECT_TIMEOUT", "PT0S",
                 "KUBERT_REQUEST_TIMEOUT", "-PT1S",
-                "KUBERT_DRY_RUN", "yes").entrySet()) {
+                "KUBERT_DRY_RUN", "yes",
+                "KUBERT_UPDATE_POLICY", "anything").entrySet()) {
             Map<String, String> environment = new HashMap<>();
             environment.put("KUBERT_DEPLOYMENT", "api");
             environment.put("KUBERT_CONTAINER", "web");

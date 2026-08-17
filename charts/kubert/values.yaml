@@ -1,0 +1,75 @@
+nameOverride: ""
+fullnameOverride: ""
+
+workload:
+  replicaCount: 1
+  containerName: app
+  image:
+    repository: nginx
+    tag: "1.30.4"
+    digest: ""
+    pullPolicy: IfNotPresent
+  command: []
+  args: []
+  ports:
+    - name: http
+      containerPort: 80
+      protocol: TCP
+  env: []
+  resources: {}
+  securityContext: {}
+
+kubert:
+  image:
+    repository: ghcr.io/ocularminds/kubert
+    tag: ""
+    digest: ""
+    pullPolicy: IfNotPresent
+  pollInterval: PT5M
+  updatePolicy: PATCH
+  connectTimeout: PT5S
+  requestTimeout: PT15S
+  dryRun: false
+  registryCredentials:
+    existingSecret: ""
+    usernameKey: username
+    tokenKey: token
+  resources:
+    requests:
+      cpu: 25m
+      memory: 96Mi
+    limits:
+      memory: 256Mi
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+    readOnlyRootFilesystem: true
+    runAsNonRoot: true
+    runAsUser: 65532
+    runAsGroup: 65532
+    seccompProfile:
+      type: RuntimeDefault
+
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+
+rbac:
+  create: true
+
+service:
+  enabled: true
+  type: ClusterIP
+  port: 80
+  targetPort: http
+
+imagePullSecrets: []
+podAnnotations: {}
+podLabels: {}
+nodeSelector: {}
+tolerations: []
+affinity: {}
+terminationGracePeriodSeconds: 30
