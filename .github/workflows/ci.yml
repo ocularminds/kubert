@@ -13,6 +13,25 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  quality:
+    name: Validate workflows and release configuration
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out source
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Validate Actions workflows
+        run: >-
+          docker run --rm
+          --volume "${PWD}:/repo"
+          --workdir /repo
+          rhysd/actionlint@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667
+          -color
+      - name: Check shell scripts
+        run: shellcheck charts/kubert/tests/render.sh scripts/*.sh scripts/tests/*.sh
+      - name: Test release configuration validation
+        run: scripts/tests/verify-release-config-test.sh
+
   test:
     name: Test on Java 17
     runs-on: ubuntu-latest

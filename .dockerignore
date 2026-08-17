@@ -9,3 +9,4 @@ docs
 *.iml
 *.log
 deploy.yaml
+gha-creds-*.json

@@ -22,6 +22,18 @@ default `PATCH` policy keeps the first two numeric components fixed; `MINOR`
 keeps the first component fixed, while `MAJOR` permits any newer numeric track.
 Updates also preserve whether the current tag uses a `v` prefix.
 
+## Published artifacts
+
+Each release publishes one `linux/amd64` and `linux/arm64` image manifest to
+GitHub Container Registry, Docker Hub, Google Artifact Registry, and Azure
+Container Registry. Version, major/minor, and `latest` tags all point to the
+same release build. The Helm chart remains available from the GHCR OCI chart
+repository.
+
+Exact image references and their shared manifest digest are attached to each
+GitHub Release as `IMAGES.txt`. See [the release guide](docs/releasing.md) for
+registry configuration, authentication, and verification.
+
 ## Install with Helm
 
 The chart requires Kubernetes 1.29 or newer because it uses the stable native

@@ -5,6 +5,7 @@ out/
 *.class
 *.jar
 *.tgz
+gha-creds-*.json
 
 .DS_Store
 .idea/
