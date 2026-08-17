@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title description">
+  <title id="title">Kubert</title>
+  <desc id="description">A blue cube surrounded by two update arrows</desc>
+  <defs>
+    <linearGradient id="cube" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#38bdf8"/>
+      <stop offset="1" stop-color="#2563eb"/>
+    </linearGradient>
+  </defs>
+  <path fill="none" stroke="#0f172a" stroke-linecap="round" stroke-width="9"
+        d="M25 44A46 46 0 0 1 98 30"/>
+  <path fill="#0f172a" d="m102 17 3 22-22-3z"/>
+  <path fill="none" stroke="#0f172a" stroke-linecap="round" stroke-width="9"
+        d="M103 84a46 46 0 0 1-73 14"/>
+  <path fill="#0f172a" d="m26 111-3-22 22 3z"/>
+  <path fill="url(#cube)" stroke="#fff" stroke-linejoin="round" stroke-width="3"
+        d="m64 35 29 16v31L64 98 35 82V51z"/>
+  <path fill="#1d4ed8" stroke="#fff" stroke-linejoin="round" stroke-width="3"
+        d="M35 51 64 67v31L35 82z"/>
+  <path fill="#60a5fa" stroke="#fff" stroke-linejoin="round" stroke-width="3"
+        d="m93 51-29 16v31l29-16z"/>
+  <path fill="#7dd3fc" stroke="#fff" stroke-linejoin="round" stroke-width="3"
+        d="m64 35 29 16-29 16-29-16z"/>
+</svg>

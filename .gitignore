@@ -4,6 +4,7 @@ out/
 
 *.class
 *.jar
+*.tgz
 
 .DS_Store
 .idea/

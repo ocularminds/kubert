@@ -7,6 +7,7 @@ import java.util.Objects;
 import java.util.Optional;
 import osfx.kubert.model.DeploymentTarget;
 import osfx.kubert.model.RegistryCredentials;
+import osfx.kubert.service.UpdatePolicy;
 
 public final class KubertConfig {
     private static final Duration DEFAULT_POLL_INTERVAL = Duration.ofMinutes(5);
@@ -20,6 +21,7 @@ public final class KubertConfig {
     private final Duration connectTimeout;
     private final Duration requestTimeout;
     private final boolean dryRun;
+    private final UpdatePolicy updatePolicy;
     private final Optional<RegistryCredentials> registryCredentials;
 
     public KubertConfig(
@@ -28,6 +30,7 @@ public final class KubertConfig {
             Duration connectTimeout,
             Duration requestTimeout,
             boolean dryRun,
+            UpdatePolicy updatePolicy,
             Optional<RegistryCredentials> registryCredentials) {
         this.target = Objects.requireNonNull(target, "target is required");
         this.pollInterval = requireDuration(
@@ -38,6 +41,7 @@ public final class KubertConfig {
         this.connectTimeout = requirePositive(connectTimeout, "connect timeout");
         this.requestTimeout = requirePositive(requestTimeout, "request timeout");
         this.dryRun = dryRun;
+        this.updatePolicy = Objects.requireNonNull(updatePolicy, "update policy is required");
         this.registryCredentials = Objects.requireNonNull(
                 registryCredentials,
                 "registry credentials are required");
@@ -66,6 +70,7 @@ public final class KubertConfig {
                 "KUBERT_REQUEST_TIMEOUT",
                 DEFAULT_REQUEST_TIMEOUT);
         boolean dryRun = booleanValue(environment, "KUBERT_DRY_RUN", false);
+        UpdatePolicy updatePolicy = updatePolicy(environment.get("KUBERT_UPDATE_POLICY"));
         Optional<RegistryCredentials> credentials = credentials(environment);
         return new KubertConfig(
                 target,
@@ -73,6 +78,7 @@ public final class KubertConfig {
                 connectTimeout,
                 requestTimeout,
                 dryRun,
+                updatePolicy,
                 credentials);
     }
 
@@ -94,6 +100,10 @@ public final class KubertConfig {
 
     public boolean dryRun() {
         return dryRun;
+    }
+
+    public UpdatePolicy updatePolicy() {
+        return updatePolicy;
     }
 
     public Optional<RegistryCredentials> registryCredentials() {
@@ -148,6 +158,19 @@ public final class KubertConfig {
             throw new IllegalArgumentException(name + " must be true or false");
         }
         return Boolean.parseBoolean(value);
+    }
+
+    private static UpdatePolicy updatePolicy(String value) {
+        if (isBlank(value)) {
+            return UpdatePolicy.PATCH;
+        }
+        try {
+            return UpdatePolicy.valueOf(value.toUpperCase(java.util.Locale.ROOT));
+        } catch (IllegalArgumentException exception) {
+            throw new IllegalArgumentException(
+                    "KUBERT_UPDATE_POLICY must be PATCH, MINOR, or MAJOR",
+                    exception);
+        }
     }
 
     private static Duration requirePositive(Duration value, String field) {

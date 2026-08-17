@@ -17,6 +17,9 @@ jobs:
     name: Test on Java 17
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - name: Check out source
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -29,6 +32,12 @@ jobs:
         uses: gradle/actions/setup-gradle@16f3e46a58d2b926c34615132d7969a96bccb22b # v6.0.0
       - name: Verify
         run: ./gradlew clean check --no-daemon
+      - name: Upload coverage
+        uses: codecov/codecov-action@e53489f4d376d79066609109e7a95a29eb3740b1 # v7.0.0
+        with:
+          files: build/reports/jacoco/test/jacocoTestReport.xml
+          fail_ci_if_error: false
+          use_oidc: true
       - name: Upload test and coverage reports
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
@@ -39,3 +48,48 @@ jobs:
             build/reports/jacoco/test
           if-no-files-found: error
           retention-days: 7
+
+  helm:
+    name: Validate Helm sidecar chart
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out source
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Set up Helm
+        uses: azure/setup-helm@dda3372f752e03dde6b3237bc9431cdc2f7a02a2 # v5.0.0
+        with:
+          version: v4.2.0
+      - name: Test chart rendering and schema
+        run: charts/kubert/tests/render.sh
+
+  container:
+    name: Build and scan container
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out source
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Build image
+        run: >-
+          docker build
+          --build-arg VERSION=ci
+          --build-arg REVISION=${{ github.sha }}
+          --tag kubert:test
+          .
+      - name: Verify image defaults
+        run: |
+          test "$(docker image inspect kubert:test --format '{{.Config.User}}')" = "65532:65532"
+          set +e
+          docker run --rm kubert:test
+          status=$?
+          set -e
+          test "${status}" -eq 2
+      - name: Scan image
+        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
+        with:
+          image-ref: kubert:test
+          format: table
+          exit-code: "1"
+          ignore-unfixed: true
+          severity: CRITICAL,HIGH

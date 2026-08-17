@@ -10,9 +10,11 @@ import osfx.kubert.registry.RegistryException;
 
 public final class DockerHubImageResolver implements ImageResolver {
     private final RegistryClient registryClient;
+    private final UpdatePolicy updatePolicy;
 
-    public DockerHubImageResolver(RegistryClient registryClient) {
+    public DockerHubImageResolver(RegistryClient registryClient, UpdatePolicy updatePolicy) {
         this.registryClient = Objects.requireNonNull(registryClient, "registry client is required");
+        this.updatePolicy = Objects.requireNonNull(updatePolicy, "update policy is required");
     }
 
     @Override
@@ -29,6 +31,9 @@ public final class DockerHubImageResolver implements ImageResolver {
                 .map(VersionTag::parse)
                 .flatMap(Optional::stream)
                 .filter(candidate -> candidate.compareTo(currentTag.get()) > 0)
+                .filter(candidate -> updatePolicy.allows(currentTag.get(), candidate))
+                .filter(candidate -> candidate.value().startsWith("v")
+                        == currentTag.get().value().startsWith("v"))
                 .max(Comparator.naturalOrder())
                 .map(VersionTag::value)
                 .map(reference.get()::withTag);

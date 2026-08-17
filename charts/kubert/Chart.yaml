@@ -1,0 +1,19 @@
+apiVersion: v2
+name: kubert
+description: Run Kubert as a native sidecar beside a single-replica workload
+type: application
+version: 0.2.0
+appVersion: "0.2.0"
+kubeVersion: ">=1.29.0-0"
+home: https://github.com/ocularminds/kubert
+icon: https://raw.githubusercontent.com/ocularminds/kubert/master/docs/kubert.svg
+sources:
+  - https://github.com/ocularminds/kubert
+maintainers:
+  - name: Ocular Minds
+    url: https://github.com/ocularminds
+annotations:
+  artifacthub.io/license: Apache-2.0
+  artifacthub.io/containsSecurityUpdates: "false"
+  artifacthub.io/prerelease: "false"
+  org.opencontainers.image.source: https://github.com/ocularminds/kubert
