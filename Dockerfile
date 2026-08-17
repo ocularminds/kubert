@@ -7,7 +7,7 @@ COPY --chmod=0755 gradlew ./gradlew
 COPY gradle ./gradle
 COPY build.gradle settings.gradle gradle.properties gradle.lockfile ./
 RUN --mount=type=cache,target=/root/.gradle \
-    ./gradlew dependencies --no-daemon
+    ./gradlew resolveRuntimeDependencies --no-configuration-cache --no-daemon
 
 COPY src ./src
 RUN --mount=type=cache,target=/root/.gradle \
