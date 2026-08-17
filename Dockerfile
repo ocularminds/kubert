@@ -13,7 +13,7 @@ COPY src ./src
 RUN --mount=type=cache,target=/root/.gradle \
     ./gradlew clean installDist --offline --no-daemon
 
-FROM gcr.io/distroless/java17-debian12:nonroot@sha256:06484c2a9dcc9070aeafbc0fe752cb9f73bc0cea5c311f6a516e9010061998ad
+FROM gcr.io/distroless/java17-debian13:nonroot@sha256:1c6329f129ec1680322029528b12b5798e770658bee24d3a4854157992157255
 
 ARG VERSION=dev
 ARG REVISION=unknown
