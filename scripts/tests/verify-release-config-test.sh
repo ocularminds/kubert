@@ -6,7 +6,7 @@ validator="${project_root}/scripts/verify-release-config.sh"
 
 core_environment=(
   RELEASE_TAG=v0.2.0
-  DOCKERHUB_USER=speedo
+  DOCKERHUB_USER=speedoo
   DOCKERHUB_TOKEN=test-token
 )
 cloud_environment=(

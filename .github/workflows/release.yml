@@ -4,6 +4,12 @@ on:
   push:
     tags:
       - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing version tag to publish without moving it
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -11,7 +17,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: release-${{ github.ref }}
+  group: release-${{ inputs.release_tag || github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -21,8 +27,9 @@ jobs:
     timeout-minutes: 40
     environment: release
     env:
+      RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
       GHCR_IMAGE: ghcr.io/${{ github.repository }}
-      DOCKERHUB_IMAGE: docker.io/speedo/kubert
+      DOCKERHUB_IMAGE: docker.io/speedoo/kubert
       GAR_REGISTRY: ${{ vars.GAR_REGISTRY }}
       GAR_IMAGE: ${{ vars.GAR_REGISTRY }}/${{ vars.GAR_PROJECT_ID }}/${{ vars.GAR_REPOSITORY }}/kubert
       ACR_LOGIN_SERVER: ${{ vars.ACR_LOGIN_SERVER }}
@@ -30,10 +37,20 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+
+      - name: Resolve immutable release source
+        id: release-source
+        run: |
+          set -euo pipefail
+          tag_revision="$(git rev-list -n 1 "${RELEASE_TAG}")"
+          head_revision="$(git rev-parse HEAD)"
+          test "${tag_revision}" = "${head_revision}"
+          echo "revision=${head_revision}" >> "${GITHUB_OUTPUT}"
 
       - name: Verify release and registry configuration
         env:
-          RELEASE_TAG: ${{ github.ref_name }}
           DOCKERHUB_USER: ${{ secrets.DOCKERHUB_USER }}
           DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
           GAR_REGISTRY: ${{ vars.GAR_REGISTRY }}
@@ -116,10 +133,13 @@ jobs:
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
           images: ${{ steps.destinations.outputs.images }}
+          flavor: latest=false
           tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{version}},value=${{ env.RELEASE_TAG }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ env.RELEASE_TAG }}
             type=raw,value=latest
+          labels: |
+            org.opencontainers.image.revision=${{ steps.release-source.outputs.revision }}
 
       - name: Build and publish multi-registry image
         id: build
@@ -132,7 +152,7 @@ jobs:
           labels: ${{ steps.metadata.outputs.labels }}
           build-args: |
             VERSION=${{ steps.metadata.outputs.version }}
-            REVISION=${{ github.sha }}
+            REVISION=${{ steps.release-source.outputs.revision }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           provenance: mode=max
@@ -158,7 +178,6 @@ jobs:
       - name: Create release assets
         env:
           IMAGE_DIGEST: ${{ steps.build.outputs.digest }}
-          RELEASE_TAG: ${{ github.ref_name }}
         run: |
           set -euo pipefail
           {
@@ -183,7 +202,6 @@ jobs:
       - name: Create GitHub release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RELEASE_TAG: ${{ github.ref_name }}
         run: |
           set -euo pipefail
           if gh release view "${RELEASE_TAG}" >/dev/null 2>&1; then
