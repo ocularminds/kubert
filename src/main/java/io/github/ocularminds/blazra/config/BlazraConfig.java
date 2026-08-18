@@ -1,5 +1,7 @@
 package io.github.ocularminds.blazra.config;
 
+import java.nio.file.InvalidPathException;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.time.format.DateTimeParseException;
 import java.util.Map;
@@ -22,7 +24,8 @@ public final class BlazraConfig {
     private final Duration requestTimeout;
     private final boolean dryRun;
     private final UpdatePolicy updatePolicy;
-    private final Optional<RegistryCredentials> registryCredentials;
+    private final Optional<RegistryCredentials> dockerHubCredentials;
+    private final Optional<Path> ociRegistryConfigPath;
 
     public BlazraConfig(
             DeploymentTarget target,
@@ -31,7 +34,8 @@ public final class BlazraConfig {
             Duration requestTimeout,
             boolean dryRun,
             UpdatePolicy updatePolicy,
-            Optional<RegistryCredentials> registryCredentials) {
+            Optional<RegistryCredentials> dockerHubCredentials,
+            Optional<Path> ociRegistryConfigPath) {
         this.target = Objects.requireNonNull(target, "target is required");
         this.pollInterval = requireDuration(
                 pollInterval,
@@ -42,9 +46,12 @@ public final class BlazraConfig {
         this.requestTimeout = requirePositive(requestTimeout, "request timeout");
         this.dryRun = dryRun;
         this.updatePolicy = Objects.requireNonNull(updatePolicy, "update policy is required");
-        this.registryCredentials = Objects.requireNonNull(
-                registryCredentials,
-                "registry credentials are required");
+        this.dockerHubCredentials = Objects.requireNonNull(
+                dockerHubCredentials,
+                "Docker Hub credentials are required");
+        this.ociRegistryConfigPath = Objects.requireNonNull(
+                ociRegistryConfigPath,
+                "OCI registry config path is required");
     }
 
     public static BlazraConfig fromEnvironment() {
@@ -72,7 +79,8 @@ public final class BlazraConfig {
                 DEFAULT_REQUEST_TIMEOUT);
         boolean dryRun = booleanValue(variables, "DRY_RUN", false);
         UpdatePolicy updatePolicy = updatePolicy(variables.value("UPDATE_POLICY").orElse(null));
-        Optional<RegistryCredentials> credentials = credentials(environment);
+        Optional<RegistryCredentials> dockerHubCredentials = dockerHubCredentials(environment);
+        Optional<Path> ociRegistryConfigPath = ociRegistryConfigPath(variables);
         return new BlazraConfig(
                 target,
                 pollInterval,
@@ -80,7 +88,8 @@ public final class BlazraConfig {
                 requestTimeout,
                 dryRun,
                 updatePolicy,
-                credentials);
+                dockerHubCredentials,
+                ociRegistryConfigPath);
     }
 
     public DeploymentTarget target() {
@@ -107,11 +116,16 @@ public final class BlazraConfig {
         return updatePolicy;
     }
 
-    public Optional<RegistryCredentials> registryCredentials() {
-        return registryCredentials;
+    public Optional<RegistryCredentials> dockerHubCredentials() {
+        return dockerHubCredentials;
     }
 
-    private static Optional<RegistryCredentials> credentials(Map<String, String> environment) {
+    public Optional<Path> ociRegistryConfigPath() {
+        return ociRegistryConfigPath;
+    }
+
+    private static Optional<RegistryCredentials> dockerHubCredentials(
+            Map<String, String> environment) {
         String identifier = environment.get("DOCKER_HUB_USERNAME");
         String secret = environment.get("DOCKER_HUB_TOKEN");
         if (isBlank(identifier) && isBlank(secret)) {
@@ -122,6 +136,29 @@ public final class BlazraConfig {
                     "DOCKER_HUB_USERNAME and DOCKER_HUB_TOKEN must be configured together");
         }
         return Optional.of(new RegistryCredentials(identifier, secret));
+    }
+
+    private static Optional<Path> ociRegistryConfigPath(EnvironmentVariables variables) {
+        return variables.value("OCI_REGISTRY_CONFIG_PATH").map(value -> {
+            if (value.length() > 4096) {
+                throw new IllegalArgumentException(
+                        variables.currentName("OCI_REGISTRY_CONFIG_PATH") + " is too long");
+            }
+            try {
+                Path path = Path.of(value);
+                if (!path.isAbsolute()) {
+                    throw new IllegalArgumentException(
+                            variables.currentName("OCI_REGISTRY_CONFIG_PATH")
+                                    + " must be an absolute path");
+                }
+                return path.normalize();
+            } catch (InvalidPathException exception) {
+                throw new IllegalArgumentException(
+                        variables.currentName("OCI_REGISTRY_CONFIG_PATH")
+                                + " must be a valid path",
+                        exception);
+            }
+        });
     }
 
     private static String required(EnvironmentVariables variables, String suffix) {

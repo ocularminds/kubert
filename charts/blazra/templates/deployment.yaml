@@ -64,6 +64,10 @@ spec:
                   name: {{ . | quote }}
                   key: {{ $.Values.blazra.registryCredentials.tokenKey | quote }}
             {{- end }}
+            {{- with .Values.blazra.ociRegistryCredentials.existingSecret }}
+            - name: BLAZRA_OCI_REGISTRY_CONFIG_PATH
+              value: /var/run/secrets/blazra/registry/config.json
+            {{- end }}
           securityContext:
             {{- toYaml .Values.blazra.securityContext | nindent 12 }}
           resources:
@@ -72,6 +76,11 @@ spec:
             - name: kubernetes-api-access
               mountPath: /var/run/secrets/kubernetes.io/serviceaccount
               readOnly: true
+            {{- with .Values.blazra.ociRegistryCredentials.existingSecret }}
+            - name: oci-registry-credentials
+              mountPath: /var/run/secrets/blazra/registry
+              readOnly: true
+            {{- end }}
       containers:
         - name: {{ .Values.workload.containerName }}
           image: {{ include "blazra.workloadImage" . | quote }}
@@ -118,6 +127,15 @@ spec:
                     - path: namespace
                       fieldRef:
                         fieldPath: metadata.namespace
+        {{- with .Values.blazra.ociRegistryCredentials.existingSecret }}
+        - name: oci-registry-credentials
+          secret:
+            secretName: {{ . | quote }}
+            defaultMode: 0444
+            items:
+              - key: {{ $.Values.blazra.ociRegistryCredentials.configKey | quote }}
+                path: config.json
+        {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

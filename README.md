@@ -12,17 +12,17 @@
 [![Java 17](https://img.shields.io/badge/Java-17-ED8B00?logo=openjdk&logoColor=white)](https://adoptium.net/)
 
 Blazra watches one container in a Kubernetes Deployment and updates its image
-when a newer numeric tag is available. It supports Docker Hub and anonymous
-public OCI Distribution registries, including GHCR and ECR Public. The Helm
-chart runs Blazra as a Kubernetes-native sidecar beside that workload and
-grants access to exactly one Deployment.
+when a newer numeric tag is available. It supports Docker Hub plus public and
+private OCI Distribution repositories, including GHCR, GAR, ACR, and ECR
+Public. The Helm chart runs Blazra as a Kubernetes-native sidecar beside that
+workload and grants access to exactly one Deployment.
 
 Supported tags contain two to four numeric components, with an optional `v`
-prefix—for example `1.4`, `v2.3.1`, or `3.1.0.12`. Digests, private non-Docker
-Hub registries, and non-numeric release tags are deliberately left unchanged.
-The default `PATCH` policy keeps the first two numeric components fixed;
-`MINOR` keeps the first component fixed, while `MAJOR` permits any newer
-numeric track. Updates also preserve whether the current tag uses a `v` prefix.
+prefix—for example `1.4`, `v2.3.1`, or `3.1.0.12`. Digests and non-numeric
+release tags are deliberately left unchanged. The default `PATCH` policy keeps
+the first two numeric components fixed; `MINOR` keeps the first component
+fixed, while `MAJOR` permits any newer numeric track. Updates also preserve
+whether the current tag uses a `v` prefix.
 
 ## Published artifacts
 
@@ -98,7 +98,7 @@ Use a scoped Docker Hub access token, never an account password. The chart does
 not accept secret values directly, so they cannot be persisted in Helm release
 values.
 
-### Public OCI registries
+### OCI registries
 
 Use a fully qualified repository for public GHCR, Google Artifact Registry,
 Azure Container Registry, Amazon ECR Public, or another OCI Distribution
@@ -113,10 +113,38 @@ workload:
 
 Anonymous registries may issue a short-lived bearer token challenge. Blazra
 accepts that flow only when the token service uses the registry's own HTTPS
-origin. Registry names must be fully qualified public DNS names; literal IP,
-localhost, `.local`, and `.internal` destinations are rejected. Private OCI
-registry credentials are not yet supported; Docker Hub credentials remain
-isolated to Docker Hub requests.
+origin. Registry names must be externally reachable, fully qualified DNS names;
+literal IP, localhost, `.local`, and `.internal` destinations are rejected.
+
+For a private OCI repository, create a standard Kubernetes Docker config
+Secret. Use a read-only account or token with pull access only:
+
+```shell
+kubectl create secret docker-registry private-registry \
+  --namespace apps \
+  --docker-server=ghcr.io \
+  --docker-username=YOUR_ACCOUNT \
+  --docker-password=YOUR_READ_ONLY_TOKEN
+```
+
+Reference the same Secret for the kubelet and the Blazra sidecar:
+
+```yaml
+imagePullSecrets:
+  - name: private-registry
+
+blazra:
+  ociRegistryCredentials:
+    existingSecret: private-registry
+```
+
+The `.dockerconfigjson` file is mounted read-only into Blazra and never into the
+primary workload. Blazra looks up credentials by exact registry host and sends
+them only after that registry returns a Bearer or Basic authentication
+challenge. It rereads the projected file for each new challenge, allowing
+Kubernetes Secret rotation without rebuilding the image. Docker credential
+helpers are not executed; the Secret must contain a static `auth` entry.
+Docker Hub credentials remain isolated to the dedicated Docker Hub client.
 
 ## Important values
 
@@ -131,6 +159,7 @@ isolated to Docker Hub requests.
 | `blazra.updatePolicy` | `PATCH` | Allow `PATCH`, `MINOR`, or `MAJOR` version scope |
 | `blazra.dryRun` | `false` | Report changes without applying them |
 | `blazra.registryCredentials.existingSecret` | empty | Optional Docker Hub Secret |
+| `blazra.ociRegistryCredentials.existingSecret` | empty | Optional Docker config Secret for private OCI repositories |
 | `rbac.create` | `true` | Create the least-privilege Role and binding |
 | `service.enabled` | `true` | Expose the primary workload with a Service |
 
@@ -150,6 +179,8 @@ See [`values.yaml`](charts/blazra/values.yaml) for the complete configuration.
 - Registry responses, pagination, timeouts, bearer tokens, and origins are
   bounded and validated. Error messages do not include upstream bodies or
   credentials, and Docker Hub credentials are never routed to another host.
+- Private OCI credentials are resolved by exact host, mounted only into Blazra,
+  and sent only in response to an HTTPS authentication challenge.
 - Kubernetes writes use the resource version and re-check the current image to
   avoid overwriting concurrent changes.
 - CodeQL scans Java and GitHub Actions on every change and weekly. Dependency
@@ -171,6 +202,7 @@ running the image directly.
 | `BLAZRA_CONNECT_TIMEOUT` | No | `PT5S` | Registry connection timeout |
 | `BLAZRA_REQUEST_TIMEOUT` | No | `PT15S` | Registry request timeout |
 | `BLAZRA_DRY_RUN` | No | `false` | Report updates without writing them |
+| `BLAZRA_OCI_REGISTRY_CONFIG_PATH` | No | — | Absolute path to a Docker `config.json` credential file |
 | `DOCKER_HUB_USERNAME` | No | — | Configure together with the token |
 | `DOCKER_HUB_TOKEN` | No | — | Scoped Docker Hub access token |
 
@@ -185,8 +217,8 @@ the update policy:
 
 - `model` owns validated, immutable domain values.
 - `service` owns image selection and update orchestration.
-- `registry` routes Docker Hub to its dedicated adapter and other public images
-  to a bounded OCI Distribution adapter.
+- `registry` routes Docker Hub to its dedicated adapter and other images to a
+  bounded OCI Distribution adapter with a host-scoped credential provider.
 - `repository` adapts Kubernetes with optimistic concurrency.
 - `runtime` schedules non-overlapping checks.
 - `config` validates all input before startup.

@@ -58,6 +58,7 @@ mount_count="$(grep -Fc 'mountPath: /var/run/secrets/kubernetes.io/serviceaccoun
 if grep -Fq 'DOCKER_HUB_TOKEN' "${test_dir}/default.yaml"; then
   fail "anonymous installs must not emit credential references"
 fi
+assert_not_contains "${test_dir}/default.yaml" "BLAZRA_OCI_REGISTRY_CONFIG_PATH"
 
 helm template secured "${chart_dir}" \
   --namespace apps \
@@ -75,6 +76,25 @@ assert_contains "${test_dir}/secured.yaml" "name: \"docker-hub\""
 assert_contains "${test_dir}/secured.yaml" "key: \"access-token\""
 assert_contains "${test_dir}/secured.yaml" "value: \"web\""
 assert_not_contains "${test_dir}/secured.yaml" "untrusted"
+
+helm template private-oci "${chart_dir}" \
+  --namespace apps \
+  --kube-version 1.29.0 \
+  --set workload.image.repository=ghcr.io/example/private-app \
+  --set blazra.ociRegistryCredentials.existingSecret=private-registry \
+  --set-string blazra.ociRegistryCredentials.configKey=.dockerconfigjson \
+  --set imagePullSecrets[0].name=private-registry > "${test_dir}/private-oci.yaml"
+
+assert_contains "${test_dir}/private-oci.yaml" "name: BLAZRA_OCI_REGISTRY_CONFIG_PATH"
+assert_contains "${test_dir}/private-oci.yaml" "/var/run/secrets/blazra/registry/config.json"
+assert_contains "${test_dir}/private-oci.yaml" "name: oci-registry-credentials"
+assert_contains "${test_dir}/private-oci.yaml" "secretName: \"private-registry\""
+assert_contains "${test_dir}/private-oci.yaml" "key: \".dockerconfigjson\""
+assert_contains "${test_dir}/private-oci.yaml" "- name: private-registry"
+
+registry_mount_count="$(grep -Fc 'mountPath: /var/run/secrets/blazra/registry' \
+  "${test_dir}/private-oci.yaml")"
+[[ "${registry_mount_count}" == "1" ]] || fail "registry credentials must be mounted only in Blazra"
 
 digest="sha256:$(printf 'a%.0s' {1..64})"
 helm template pinned "${chart_dir}" \
@@ -127,6 +147,13 @@ if helm template invalid-policy "${chart_dir}" \
   --kube-version 1.29.0 \
   --set blazra.updatePolicy=EVERYTHING > /dev/null 2>&1; then
   fail "unknown update policies must be rejected"
+fi
+
+if helm template invalid-registry-key "${chart_dir}" \
+  --kube-version 1.29.0 \
+  --set blazra.ociRegistryCredentials.existingSecret=private-registry \
+  --set blazra.ociRegistryCredentials.configKey=bad/key > /dev/null 2>&1; then
+  fail "invalid Docker config Secret keys must be rejected"
 fi
 
 if helm template missing-service-account "${chart_dir}" \
