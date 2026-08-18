@@ -1,7 +1,7 @@
 # Releasing Kubert
 
 Kubert releases are built once for `linux/amd64` and `linux/arm64`, then pushed
-to GHCR and `docker.io/speedo/kubert` by `.github/workflows/release.yml`. Google
+to GHCR and `docker.io/speedoo/kubert` by `.github/workflows/release.yml`. Google
 Artifact Registry and Azure Container Registry are optional mirrors. The
 workflow also pushes the Helm chart to GHCR and creates a GitHub Release with
 the packaged chart, image references, and SHA-256 checksums.
@@ -47,7 +47,7 @@ authenticating or publishing.
 
 ## Registry access
 
-- Create `docker.io/speedo/kubert` as a public Docker Hub
+- Create `docker.io/speedoo/kubert` as a public Docker Hub
   repository and use an organization access token where available.
 - Give the Google service account Artifact Registry Writer only on the selected
   repository. Grant Artifact Registry Reader to `allUsers` on that repository
@@ -70,6 +70,18 @@ git push origin v0.2.0
 The tag triggers the release workflow. It publishes `0.2.0`, `0.2`, and
 `latest` tags and creates the GitHub Release only after every configured
 registry and the Helm chart have accepted their artifacts.
+
+If a registry-side problem interrupts publication after the tag is created,
+fix the external configuration and dispatch the reviewed workflow from
+`master` without deleting or moving the tag:
+
+```shell
+gh workflow run Release --ref master -f release_tag=v0.2.0
+```
+
+The recovery path checks out the existing tag, verifies that `HEAD` resolves to
+its commit, and derives both image version and revision from that immutable
+source.
 
 ## Verify publication
 

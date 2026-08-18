@@ -25,7 +25,7 @@ Updates also preserve whether the current tag uses a `v` prefix.
 ## Published artifacts
 
 Each release publishes one `linux/amd64` and `linux/arm64` image manifest to
-GitHub Container Registry and `docker.io/speedo/kubert`. Google Artifact
+GitHub Container Registry and `docker.io/speedoo/kubert`. Google Artifact
 Registry and Azure Container Registry are included when their OIDC settings
 are configured. Version, major/minor, and `latest` tags all point to the same
 release build. The Helm chart remains available from the GHCR OCI chart
