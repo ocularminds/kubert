@@ -31,6 +31,8 @@ jobs:
         run: shellcheck charts/blazra/tests/render.sh scripts/*.sh scripts/tests/*.sh
       - name: Test release configuration validation
         run: scripts/tests/verify-release-config-test.sh
+      - name: Test security automation configuration
+        run: scripts/tests/verify-security-automation-test.sh
 
   test:
     name: Test on Java 17
