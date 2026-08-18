@@ -22,8 +22,10 @@ jobs:
     environment: release
     env:
       GHCR_IMAGE: ghcr.io/${{ github.repository }}
-      DOCKERHUB_IMAGE: docker.io/${{ vars.DOCKERHUB_NAMESPACE }}/kubert
+      DOCKERHUB_IMAGE: docker.io/speedo/kubert
+      GAR_REGISTRY: ${{ vars.GAR_REGISTRY }}
       GAR_IMAGE: ${{ vars.GAR_REGISTRY }}/${{ vars.GAR_PROJECT_ID }}/${{ vars.GAR_REPOSITORY }}/kubert
+      ACR_LOGIN_SERVER: ${{ vars.ACR_LOGIN_SERVER }}
       ACR_IMAGE: ${{ vars.ACR_LOGIN_SERVER }}/kubert
     steps:
       - name: Check out source
@@ -32,8 +34,7 @@ jobs:
       - name: Verify release and registry configuration
         env:
           RELEASE_TAG: ${{ github.ref_name }}
-          DOCKERHUB_NAMESPACE: ${{ vars.DOCKERHUB_NAMESPACE }}
-          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_USER: ${{ secrets.DOCKERHUB_USER }}
           DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
           GAR_REGISTRY: ${{ vars.GAR_REGISTRY }}
           GAR_PROJECT_ID: ${{ vars.GAR_PROJECT_ID }}
@@ -57,10 +58,11 @@ jobs:
         uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: docker.io
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          username: ${{ secrets.DOCKERHUB_USER }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Authenticate to Google Cloud with OIDC
+        if: ${{ env.GAR_REGISTRY != '' }}
         id: google-auth
         uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
         with:
@@ -70,6 +72,7 @@ jobs:
           service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
 
       - name: Log in to Google Artifact Registry
+        if: ${{ env.GAR_REGISTRY != '' }}
         uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ${{ vars.GAR_REGISTRY }}
@@ -77,6 +80,7 @@ jobs:
           password: ${{ steps.google-auth.outputs.access_token }}
 
       - name: Authenticate to Azure with OIDC
+        if: ${{ env.ACR_LOGIN_SERVER != '' }}
         uses: azure/login@f5d393ae46f8fde4be8b75f32e3fc50e654ad0ca # v3.0.1
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
@@ -84,22 +88,34 @@ jobs:
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Log in to Azure Container Registry
-        env:
-          ACR_LOGIN_SERVER: ${{ vars.ACR_LOGIN_SERVER }}
+        if: ${{ env.ACR_LOGIN_SERVER != '' }}
         run: az acr login --name "${ACR_LOGIN_SERVER%%.*}"
 
       - name: Set up Buildx
         uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
 
+      - name: Select image destinations
+        id: destinations
+        run: |
+          set -euo pipefail
+          {
+            echo 'images<<KUBERT_IMAGES'
+            echo "${GHCR_IMAGE}"
+            echo "${DOCKERHUB_IMAGE}"
+            if [[ -n "${GAR_REGISTRY}" ]]; then
+              echo "${GAR_IMAGE}"
+            fi
+            if [[ -n "${ACR_LOGIN_SERVER}" ]]; then
+              echo "${ACR_IMAGE}"
+            fi
+            echo 'KUBERT_IMAGES'
+          } >> "${GITHUB_OUTPUT}"
+
       - name: Create image metadata
         id: metadata
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
-          images: |
-            ${{ env.GHCR_IMAGE }}
-            ${{ env.DOCKERHUB_IMAGE }}
-            ${{ env.GAR_IMAGE }}
-            ${{ env.ACR_IMAGE }}
+          images: ${{ steps.destinations.outputs.images }}
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
@@ -152,8 +168,12 @@ jobs:
             echo
             echo "${GHCR_IMAGE}:${RELEASE_TAG#v}"
             echo "${DOCKERHUB_IMAGE}:${RELEASE_TAG#v}"
-            echo "${GAR_IMAGE}:${RELEASE_TAG#v}"
-            echo "${ACR_IMAGE}:${RELEASE_TAG#v}"
+            if [[ -n "${GAR_REGISTRY}" ]]; then
+              echo "${GAR_IMAGE}:${RELEASE_TAG#v}"
+            fi
+            if [[ -n "${ACR_LOGIN_SERVER}" ]]; then
+              echo "${ACR_IMAGE}:${RELEASE_TAG#v}"
+            fi
           } > dist/IMAGES.txt
           (
             cd dist
