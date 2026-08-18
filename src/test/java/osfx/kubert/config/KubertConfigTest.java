@@ -15,8 +15,8 @@ class KubertConfigTest {
     @Test
     void loadsSafeDefaults() {
         KubertConfig config = KubertConfig.fromEnvironment(Map.of(
-                "KUBERT_DEPLOYMENT", "api",
-                "KUBERT_CONTAINER", "web"));
+                "BLAZRA_DEPLOYMENT", "api",
+                "BLAZRA_CONTAINER", "web"));
 
         assertEquals("default", config.target().namespace());
         assertEquals(Duration.ofMinutes(5), config.pollInterval());
@@ -30,14 +30,14 @@ class KubertConfigTest {
     @Test
     void loadsEveryOverride() {
         KubertConfig config = KubertConfig.fromEnvironment(Map.of(
-                "KUBERT_NAMESPACE", "payments",
-                "KUBERT_DEPLOYMENT", "api",
-                "KUBERT_CONTAINER", "web",
-                "KUBERT_POLL_INTERVAL", "PT30S",
-                "KUBERT_CONNECT_TIMEOUT", "PT2S",
-                "KUBERT_REQUEST_TIMEOUT", "PT8S",
-                "KUBERT_DRY_RUN", "TRUE",
-                "KUBERT_UPDATE_POLICY", "minor",
+                "BLAZRA_NAMESPACE", "payments",
+                "BLAZRA_DEPLOYMENT", "api",
+                "BLAZRA_CONTAINER", "web",
+                "BLAZRA_POLL_INTERVAL", "PT30S",
+                "BLAZRA_CONNECT_TIMEOUT", "PT2S",
+                "BLAZRA_REQUEST_TIMEOUT", "PT8S",
+                "BLAZRA_DRY_RUN", "TRUE",
+                "BLAZRA_UPDATE_POLICY", "minor",
                 "DOCKER_HUB_USERNAME", "robot",
                 "DOCKER_HUB_TOKEN", "secret"));
 
@@ -51,27 +51,63 @@ class KubertConfigTest {
     }
 
     @Test
+    void loadsDeprecatedKubertAliases() {
+        KubertConfig config = KubertConfig.fromEnvironment(Map.of(
+                "KUBERT_NAMESPACE", "legacy",
+                "KUBERT_DEPLOYMENT", "api",
+                "KUBERT_CONTAINER", "web",
+                "KUBERT_POLL_INTERVAL", "PT1M",
+                "KUBERT_CONNECT_TIMEOUT", "PT3S",
+                "KUBERT_REQUEST_TIMEOUT", "PT9S",
+                "KUBERT_DRY_RUN", "true",
+                "KUBERT_UPDATE_POLICY", "major"));
+
+        assertEquals("legacy", config.target().namespace());
+        assertEquals(Duration.ofMinutes(1), config.pollInterval());
+        assertEquals(Duration.ofSeconds(3), config.connectTimeout());
+        assertEquals(Duration.ofSeconds(9), config.requestTimeout());
+        assertTrue(config.dryRun());
+        assertEquals(UpdatePolicy.MAJOR, config.updatePolicy());
+    }
+
+    @Test
+    void rejectsConflictingCurrentAndDeprecatedVariables() {
+        Map<String, String> environment = Map.of(
+                "BLAZRA_DEPLOYMENT", "current-api",
+                "KUBERT_DEPLOYMENT", "legacy-api",
+                "BLAZRA_CONTAINER", "web");
+
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> KubertConfig.fromEnvironment(environment));
+
+        assertEquals(
+                "BLAZRA_DEPLOYMENT conflicts with deprecated KUBERT_DEPLOYMENT",
+                exception.getMessage());
+    }
+
+    @Test
     void rejectsMissingAndPartialConfiguration() {
         assertThrows(IllegalArgumentException.class, () -> KubertConfig.fromEnvironment(Map.of()));
         assertThrows(IllegalArgumentException.class, () -> KubertConfig.fromEnvironment(Map.of(
-                "KUBERT_DEPLOYMENT", "api")));
+                "BLAZRA_DEPLOYMENT", "api")));
         assertThrows(IllegalArgumentException.class, () -> KubertConfig.fromEnvironment(Map.of(
-                "KUBERT_DEPLOYMENT", "api",
-                "KUBERT_CONTAINER", "web",
+                "BLAZRA_DEPLOYMENT", "api",
+                "BLAZRA_CONTAINER", "web",
                 "DOCKER_HUB_USERNAME", "robot")));
     }
 
     @Test
     void rejectsUnsafeIntervalsAndMalformedValues() {
         for (Map.Entry<String, String> invalid : Map.of(
-                "KUBERT_POLL_INTERVAL", "PT9S",
-                "KUBERT_CONNECT_TIMEOUT", "PT0S",
-                "KUBERT_REQUEST_TIMEOUT", "-PT1S",
-                "KUBERT_DRY_RUN", "yes",
-                "KUBERT_UPDATE_POLICY", "anything").entrySet()) {
+                "BLAZRA_POLL_INTERVAL", "PT9S",
+                "BLAZRA_CONNECT_TIMEOUT", "PT0S",
+                "BLAZRA_REQUEST_TIMEOUT", "-PT1S",
+                "BLAZRA_DRY_RUN", "yes",
+                "BLAZRA_UPDATE_POLICY", "anything").entrySet()) {
             Map<String, String> environment = new HashMap<>();
-            environment.put("KUBERT_DEPLOYMENT", "api");
-            environment.put("KUBERT_CONTAINER", "web");
+            environment.put("BLAZRA_DEPLOYMENT", "api");
+            environment.put("BLAZRA_CONTAINER", "web");
             environment.put(invalid.getKey(), invalid.getValue());
             assertThrows(
                     IllegalArgumentException.class,
@@ -79,9 +115,9 @@ class KubertConfigTest {
                     invalid.getKey());
         }
         Map<String, String> malformed = Map.of(
-                "KUBERT_DEPLOYMENT", "api",
-                "KUBERT_CONTAINER", "web",
-                "KUBERT_POLL_INTERVAL", "five minutes");
+                "BLAZRA_DEPLOYMENT", "api",
+                "BLAZRA_CONTAINER", "web",
+                "BLAZRA_POLL_INTERVAL", "five minutes");
         assertThrows(IllegalArgumentException.class, () -> KubertConfig.fromEnvironment(malformed));
     }
 }
