@@ -21,7 +21,7 @@ workload:
 
 blazra:
   image:
-    repository: ghcr.io/ocularminds/kubert
+    repository: ghcr.io/ocularminds/blazra
     tag: ""
     digest: ""
     pullPolicy: IfNotPresent

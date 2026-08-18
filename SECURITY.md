@@ -1,7 +1,7 @@
 # Security policy
 
 Please report suspected vulnerabilities through
-[GitHub private vulnerability reporting](https://github.com/ocularminds/kubert/security/advisories/new).
+[GitHub private vulnerability reporting](https://github.com/ocularminds/blazra/security/advisories/new).
 Do not include credentials, tokens, or exploit details in a public issue.
 
 Security fixes are supported on the latest released version. Reports should

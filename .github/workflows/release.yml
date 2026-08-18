@@ -28,12 +28,14 @@ jobs:
     environment: release
     env:
       RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
-      GHCR_IMAGE: ghcr.io/${{ github.repository }}
-      DOCKERHUB_IMAGE: docker.io/speedoo/kubert
+      GHCR_IMAGE: ghcr.io/ocularminds/blazra
+      GHCR_LEGACY_IMAGE: ghcr.io/ocularminds/kubert
+      DOCKERHUB_IMAGE: docker.io/speedoo/blazra
+      DOCKERHUB_LEGACY_IMAGE: docker.io/speedoo/kubert
       GAR_REGISTRY: ${{ vars.GAR_REGISTRY }}
-      GAR_IMAGE: ${{ vars.GAR_REGISTRY }}/${{ vars.GAR_PROJECT_ID }}/${{ vars.GAR_REPOSITORY }}/kubert
+      GAR_IMAGE: ${{ vars.GAR_REGISTRY }}/${{ vars.GAR_PROJECT_ID }}/${{ vars.GAR_REPOSITORY }}/blazra
       ACR_LOGIN_SERVER: ${{ vars.ACR_LOGIN_SERVER }}
-      ACR_IMAGE: ${{ vars.ACR_LOGIN_SERVER }}/kubert
+      ACR_IMAGE: ${{ vars.ACR_LOGIN_SERVER }}/blazra
     steps:
       - name: Check out source
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -118,7 +120,9 @@ jobs:
           {
             echo 'images<<BLAZRA_IMAGES'
             echo "${GHCR_IMAGE}"
+            echo "${GHCR_LEGACY_IMAGE}"
             echo "${DOCKERHUB_IMAGE}"
+            echo "${DOCKERHUB_LEGACY_IMAGE}"
             if [[ -n "${GAR_REGISTRY}" ]]; then
               echo "${GAR_IMAGE}"
             fi
@@ -181,10 +185,11 @@ jobs:
         run: |
           set -euo pipefail
           {
-            echo "Kubert ${RELEASE_TAG} container images"
+            echo "Blazra ${RELEASE_TAG} container images"
             echo
             echo "All registry references use multi-architecture manifest ${IMAGE_DIGEST}."
             echo
+            echo "Canonical images:"
             echo "${GHCR_IMAGE}:${RELEASE_TAG#v}"
             echo "${DOCKERHUB_IMAGE}:${RELEASE_TAG#v}"
             if [[ -n "${GAR_REGISTRY}" ]]; then
@@ -193,6 +198,10 @@ jobs:
             if [[ -n "${ACR_LOGIN_SERVER}" ]]; then
               echo "${ACR_IMAGE}:${RELEASE_TAG#v}"
             fi
+            echo
+            echo "Kubert compatibility aliases:"
+            echo "${GHCR_LEGACY_IMAGE}:${RELEASE_TAG#v}"
+            echo "${DOCKERHUB_LEGACY_IMAGE}:${RELEASE_TAG#v}"
           } > dist/IMAGES.txt
           (
             cd dist
@@ -209,6 +218,6 @@ jobs:
           else
             gh release create "${RELEASE_TAG}" dist/* \
               --generate-notes \
-              --title "Kubert ${RELEASE_TAG#v}" \
+              --title "Blazra ${RELEASE_TAG#v}" \
               --verify-tag
           fi

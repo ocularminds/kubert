@@ -1,18 +1,18 @@
 <p align="center">
-  <img src="docs/kubert.svg" width="112" height="112" alt="Kubert logo">
+  <img src="docs/blazra.svg" width="112" height="112" alt="Blazra logo">
 </p>
 
-# Kubert
+# Blazra
 
-[![CI](https://github.com/ocularminds/kubert/actions/workflows/ci.yml/badge.svg)](https://github.com/ocularminds/kubert/actions/workflows/ci.yml)
-[![Coverage](https://codecov.io/gh/ocularminds/kubert/branch/master/graph/badge.svg)](https://codecov.io/gh/ocularminds/kubert)
-[![Docker Pulls](https://img.shields.io/docker/pulls/speedoo/kubert?logo=docker&logoColor=white)](https://hub.docker.com/r/speedoo/kubert)
+[![CI](https://github.com/ocularminds/blazra/actions/workflows/ci.yml/badge.svg)](https://github.com/ocularminds/blazra/actions/workflows/ci.yml)
+[![Coverage](https://codecov.io/gh/ocularminds/blazra/branch/master/graph/badge.svg)](https://codecov.io/gh/ocularminds/blazra)
+[![Docker Pulls](https://img.shields.io/docker/pulls/speedoo/blazra?logo=docker&logoColor=white)](https://hub.docker.com/r/speedoo/blazra)
 [![Apache 2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![Kubernetes 1.29+](https://img.shields.io/badge/Kubernetes-1.29%2B-326CE5?logo=kubernetes&logoColor=white)](https://kubernetes.io/docs/concepts/workloads/pods/sidecar-containers/)
 [![Java 17](https://img.shields.io/badge/Java-17-ED8B00?logo=openjdk&logoColor=white)](https://adoptium.net/)
 
-Kubert watches one container in a Kubernetes Deployment and updates its Docker
-Hub image when a newer numeric tag is available. The Helm chart runs Kubert as
+Blazra watches one container in a Kubernetes Deployment and updates its Docker
+Hub image when a newer numeric tag is available. The Helm chart runs Blazra as
 a Kubernetes-native sidecar beside that workload and grants access to exactly
 one Deployment.
 
@@ -26,15 +26,24 @@ Updates also preserve whether the current tag uses a `v` prefix.
 ## Published artifacts
 
 Each release publishes one `linux/amd64` and `linux/arm64` image manifest to
-GitHub Container Registry and `docker.io/speedoo/kubert`. Google Artifact
+GitHub Container Registry and `docker.io/speedoo/blazra`. Google Artifact
 Registry and Azure Container Registry are included when their OIDC settings
 are configured. Version, major/minor, and `latest` tags all point to the same
 release build. The Helm chart remains available from the GHCR OCI chart
-repository.
+repository. During the rename transition, the same image is also published to
+`ghcr.io/ocularminds/kubert` and `docker.io/speedoo/kubert`.
 
 Exact image references and their shared manifest digest are attached to each
 GitHub Release as `IMAGES.txt`. See [the release guide](docs/releasing.md) for
 registry configuration, authentication, and verification.
+
+### Migrating from Kubert
+
+Blazra 0.3.0 is the first release under the new name. Existing Kubert image
+references remain supported as compatibility aliases, but Helm users should
+move to the `blazra` chart and replace the `kubert.*` values namespace with
+`blazra.*`. The deprecated `KUBERT_*` environment variables remain available
+for direct-image users during the transition.
 
 ## Install with Helm
 
@@ -44,7 +53,7 @@ Helm 4 is required for an OCI install.
 
 ```shell
 helm install demo oci://ghcr.io/ocularminds/charts/blazra \
-  --version 0.2.0 \
+  --version 0.3.0 \
   --namespace apps \
   --create-namespace \
   --set workload.image.repository=nginx \
@@ -96,7 +105,7 @@ values.
 | `workload.image.tag` | `1.30.4` | Initial numeric workload tag |
 | `workload.image.digest` | empty | Immutable workload digest; disables updates while set |
 | `workload.containerName` | `app` | Container Blazra is allowed to update |
-| `blazra.image.repository` | `ghcr.io/ocularminds/kubert` | Blazra sidecar image during the registry migration |
+| `blazra.image.repository` | `ghcr.io/ocularminds/blazra` | Blazra sidecar image |
 | `blazra.pollInterval` | `PT5M` | Check interval, from 10 seconds to 24 hours |
 | `blazra.updatePolicy` | `PATCH` | Allow `PATCH`, `MINOR`, or `MAJOR` version scope |
 | `blazra.dryRun` | `false` | Report changes without applying them |
@@ -110,7 +119,7 @@ See [`values.yaml`](charts/blazra/values.yaml) for the complete configuration.
 
 - RBAC permits only `get`, `patch`, and `update` on the release's exact
   Deployment name.
-- A short-lived projected service-account token is mounted only into Kubert;
+- A short-lived projected service-account token is mounted only into Blazra;
   the primary workload cannot read it.
 - The sidecar runs as UID/GID 65532 with no capabilities, no privilege
   escalation, a read-only root filesystem, and the runtime-default seccomp

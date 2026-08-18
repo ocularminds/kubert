@@ -33,10 +33,10 @@ assert_contains "${test_dir}/default.yaml" "kind: Deployment"
 assert_contains "${test_dir}/default.yaml" "restartPolicy: Always"
 assert_contains "${test_dir}/default.yaml" "resourceNames:"
 assert_contains "${test_dir}/default.yaml" "- demo-blazra"
-assert_contains "${test_dir}/default.yaml" "helm.sh/chart: blazra-0.2.0"
+assert_contains "${test_dir}/default.yaml" "helm.sh/chart: blazra-0.3.0"
 assert_contains "${test_dir}/default.yaml" "app.kubernetes.io/name: blazra"
 assert_contains "${test_dir}/default.yaml" "- name: blazra"
-assert_contains "${test_dir}/default.yaml" "ghcr.io/ocularminds/kubert:0.2.0"
+assert_contains "${test_dir}/default.yaml" "ghcr.io/ocularminds/blazra:0.3.0"
 assert_contains "${test_dir}/default.yaml" "automountServiceAccountToken: false"
 assert_contains "${test_dir}/default.yaml" "runAsUser: 65532"
 assert_contains "${test_dir}/default.yaml" "defaultMode: 0444"
@@ -84,7 +84,7 @@ helm template pinned "${chart_dir}" \
   --set blazra.image.digest="${digest}" > "${test_dir}/pinned.yaml"
 
 assert_contains "${test_dir}/pinned.yaml" "nginx@${digest}"
-assert_contains "${test_dir}/pinned.yaml" "ghcr.io/ocularminds/kubert@${digest}"
+assert_contains "${test_dir}/pinned.yaml" "ghcr.io/ocularminds/blazra@${digest}"
 
 helm template external-access "${chart_dir}" \
   --namespace apps \
@@ -141,4 +141,4 @@ if helm template legacy-values "${chart_dir}" \
 fi
 
 helm package "${chart_dir}" --destination "${test_dir}" > /dev/null
-[[ -f "${test_dir}/blazra-0.2.0.tgz" ]] || fail "chart package was not created"
+[[ -f "${test_dir}/blazra-0.3.0.tgz" ]] || fail "chart package was not created"
