@@ -130,6 +130,9 @@ See [`values.yaml`](charts/blazra/values.yaml) for the complete configuration.
   validated. Error messages do not include upstream bodies or credentials.
 - Kubernetes writes use the resource version and re-check the current image to
   avoid overwriting concurrent changes.
+- CodeQL scans Java and GitHub Actions on every change and weekly. Dependency
+  review rejects newly introduced vulnerabilities of moderate severity or
+  higher, while Dependabot groups routine dependency updates by ecosystem.
 
 ## Application configuration
 
