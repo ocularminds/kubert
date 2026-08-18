@@ -93,6 +93,7 @@
         "requestTimeout",
         "dryRun",
         "registryCredentials",
+        "ociRegistryCredentials",
         "resources",
         "securityContext"
       ],
@@ -131,6 +132,24 @@
             },
             "tokenKey": {
               "$ref": "#/definitions/nonEmptyString"
+            }
+          }
+        },
+        "ociRegistryCredentials": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["existingSecret", "configKey"],
+          "properties": {
+            "existingSecret": {
+              "type": "string",
+              "maxLength": 253,
+              "pattern": "^$|^[a-z0-9](?:[-.a-z0-9]*[a-z0-9])?$"
+            },
+            "configKey": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 253,
+              "pattern": "^[A-Za-z0-9._-]+$"
             }
           }
         },

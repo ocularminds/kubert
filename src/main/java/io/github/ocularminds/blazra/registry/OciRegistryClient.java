@@ -8,14 +8,19 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import io.github.ocularminds.blazra.model.RegistryCredentials;
 import io.github.ocularminds.blazra.model.RegistryRepository;
+import io.github.ocularminds.blazra.registry.auth.RegistryCredentialProvider;
 
 public final class OciRegistryClient implements RegistryClient {
     private static final int MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
@@ -27,6 +32,7 @@ public final class OciRegistryClient implements RegistryClient {
             "<([^<>]+)>\\s*;[^,]*?\\brel\\s*=\\s*\"?next\"?",
             Pattern.CASE_INSENSITIVE);
     private static final int MAX_TOKEN_LENGTH = 16 * 1024;
+    private static final int MAX_AUTH_CHALLENGE_LENGTH = 2048;
     private static final Pattern BEARER_TOKEN = Pattern.compile("[A-Za-z0-9\\-._~+/]+=*");
     private static final Pattern TAG = Pattern.compile("[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}");
 
@@ -34,8 +40,16 @@ public final class OciRegistryClient implements RegistryClient {
     private final ObjectMapper objectMapper;
     private final Function<RegistryRepository, URI> endpointResolver;
     private final Duration requestTimeout;
+    private final RegistryCredentialProvider credentialProvider;
 
     public OciRegistryClient(Duration connectTimeout, Duration requestTimeout) {
+        this(connectTimeout, requestTimeout, RegistryCredentialProvider.anonymous());
+    }
+
+    public OciRegistryClient(
+            Duration connectTimeout,
+            Duration requestTimeout,
+            RegistryCredentialProvider credentialProvider) {
         this(
                 HttpClient.newBuilder()
                         .connectTimeout(connectTimeout)
@@ -43,7 +57,8 @@ public final class OciRegistryClient implements RegistryClient {
                         .build(),
                 new ObjectMapper(),
                 repository -> URI.create("https://" + repository.host() + "/"),
-                requestTimeout);
+                requestTimeout,
+                credentialProvider);
     }
 
     OciRegistryClient(
@@ -51,12 +66,29 @@ public final class OciRegistryClient implements RegistryClient {
             ObjectMapper objectMapper,
             Function<RegistryRepository, URI> endpointResolver,
             Duration requestTimeout) {
+        this(
+                httpClient,
+                objectMapper,
+                endpointResolver,
+                requestTimeout,
+                RegistryCredentialProvider.anonymous());
+    }
+
+    OciRegistryClient(
+            HttpClient httpClient,
+            ObjectMapper objectMapper,
+            Function<RegistryRepository, URI> endpointResolver,
+            Duration requestTimeout,
+            RegistryCredentialProvider credentialProvider) {
         this.httpClient = Objects.requireNonNull(httpClient, "http client is required");
         this.objectMapper = Objects.requireNonNull(objectMapper, "object mapper is required");
         this.endpointResolver = Objects.requireNonNull(
                 endpointResolver,
                 "endpoint resolver is required");
         this.requestTimeout = Objects.requireNonNull(requestTimeout, "request timeout is required");
+        this.credentialProvider = Objects.requireNonNull(
+                credentialProvider,
+                "credential provider is required");
         if (requestTimeout.isZero() || requestTimeout.isNegative()) {
             throw new IllegalArgumentException("request timeout must be positive");
         }
@@ -68,21 +100,18 @@ public final class OciRegistryClient implements RegistryClient {
         URI baseUri = requireHttpBase(endpointResolver.apply(repository));
         URI page = baseUri.resolve(
                 "v2/" + repository.path() + "/tags/list?n=" + PAGE_SIZE);
-        String bearerToken = null;
+        String authorization = null;
         List<String> tags = new ArrayList<>();
 
         for (int pageNumber = 0; page != null && pageNumber < MAX_PAGES; pageNumber++) {
-            HttpResponse<InputStream> response = sendTagRequest(page, bearerToken);
-            if (response.statusCode() == 401 && bearerToken == null) {
+            HttpResponse<InputStream> response = sendTagRequest(page, authorization);
+            if (response.statusCode() == 401 && authorization == null) {
                 String challengeHeader = response.headers()
                         .firstValue("WWW-Authenticate")
                         .orElse(null);
                 close(response.body());
-                OciBearerChallenge challenge = OciBearerChallenge.parse(
-                        challengeHeader,
-                        baseUri);
-                bearerToken = requestToken(challenge);
-                response = sendTagRequest(page, bearerToken);
+                authorization = authorize(challengeHeader, baseUri, repository);
+                response = sendTagRequest(page, authorization);
             }
 
             String linkHeader = response.headers().firstValue("Link").orElse(null);
@@ -96,13 +125,33 @@ public final class OciRegistryClient implements RegistryClient {
         return List.copyOf(tags);
     }
 
-    private String requestToken(OciBearerChallenge challenge) throws RegistryException {
-        HttpRequest request = HttpRequest.newBuilder(challenge.tokenUri())
+    private String authorize(
+            String challengeHeader,
+            URI baseUri,
+            RegistryRepository repository) throws RegistryException {
+        if (hasScheme(challengeHeader, "Bearer")) {
+            OciBearerChallenge challenge = OciBearerChallenge.parse(challengeHeader, baseUri);
+            return "Bearer " + requestToken(challenge, repository);
+        }
+        if (hasScheme(challengeHeader, "Basic")) {
+            RegistryCredentials credentials = credentialProvider.credentialsFor(repository)
+                    .orElseThrow(() -> new RegistryException(
+                            "OCI registry requires credentials for the configured repository"));
+            return basicAuthorization(credentials);
+        }
+        throw new RegistryException("OCI registry returned an invalid authentication challenge");
+    }
+
+    private String requestToken(
+            OciBearerChallenge challenge,
+            RegistryRepository repository) throws RegistryException {
+        HttpRequest.Builder request = HttpRequest.newBuilder(challenge.tokenUri())
                 .timeout(requestTimeout)
                 .header("Accept", "application/json")
-                .GET()
-                .build();
-        JsonNode document = readJson(send(request, "request OCI registry token"),
+                .GET();
+        Optional<RegistryCredentials> credentials = credentialProvider.credentialsFor(repository);
+        credentials.ifPresent(value -> request.header("Authorization", basicAuthorization(value)));
+        JsonNode document = readJson(send(request.build(), "request OCI registry token"),
                 "request OCI registry token");
         if (document == null || !document.isObject()) {
             throw new RegistryException("OCI registry returned an invalid authentication token");
@@ -121,14 +170,14 @@ public final class OciRegistryClient implements RegistryClient {
         return selected;
     }
 
-    private HttpResponse<InputStream> sendTagRequest(URI page, String bearerToken)
+    private HttpResponse<InputStream> sendTagRequest(URI page, String authorization)
             throws RegistryException {
         HttpRequest.Builder builder = HttpRequest.newBuilder(page)
                 .timeout(requestTimeout)
                 .header("Accept", "application/json")
                 .GET();
-        if (bearerToken != null) {
-            builder.header("Authorization", "Bearer " + bearerToken);
+        if (authorization != null) {
+            builder.header("Authorization", authorization);
         }
         return send(builder.build(), "list OCI registry tags");
     }
@@ -155,9 +204,13 @@ public final class OciRegistryClient implements RegistryClient {
             if (body.length > MAX_RESPONSE_BYTES) {
                 throw new RegistryException(operation + " returned too much data");
             }
-            return objectMapper.readTree(body);
+            try {
+                return objectMapper.readTree(body);
+            } catch (IOException exception) {
+                throw new RegistryException(operation + " returned invalid JSON");
+            }
         } catch (IOException exception) {
-            throw new RegistryException(operation + " returned invalid JSON", exception);
+            throw new RegistryException(operation + " response could not be read", exception);
         }
     }
 
@@ -232,6 +285,20 @@ public final class OciRegistryClient implements RegistryClient {
         return value != null && value.isTextual() && !value.textValue().isBlank()
                 ? value.textValue()
                 : null;
+    }
+
+    private static boolean hasScheme(String challenge, String scheme) {
+        return challenge != null
+                && challenge.length() <= MAX_AUTH_CHALLENGE_LENGTH
+                && challenge.length() > scheme.length()
+                && challenge.regionMatches(true, 0, scheme, 0, scheme.length())
+                && Character.isWhitespace(challenge.charAt(scheme.length()));
+    }
+
+    private static String basicAuthorization(RegistryCredentials credentials) {
+        String value = credentials.identifier() + ":" + credentials.secret();
+        return "Basic " + Base64.getEncoder().encodeToString(
+                value.getBytes(StandardCharsets.UTF_8));
     }
 
     private static void close(InputStream input) throws RegistryException {

@@ -1,6 +1,7 @@
 package io.github.ocularminds.blazra.registry;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -97,16 +98,18 @@ class DockerHubRegistryClientTest {
     @Test
     void rejectsMalformedAndUnsafeResponses() {
         server.createContext("/v2/namespaces/team/repositories/bad-json/tags", exchange ->
-                respond(exchange, 200, "not-json"));
+                respond(exchange, 200, "visible-secret-not-json"));
         server.createContext("/v2/namespaces/team/repositories/bad-results/tags", exchange ->
                 respond(exchange, 200, "{\"next\":null,\"results\":{}}"));
         server.createContext("/v2/namespaces/team/repositories/unsafe-next/tags", exchange ->
                 respond(exchange, 200, "{\"next\":\"https://attacker.example/tags\",\"results\":[]}"));
 
         DockerHubRegistryClient client = client(Optional.empty());
-        assertThrows(
+        RegistryException malformed = assertThrows(
                 RegistryException.class,
                 () -> client.listTags(repository("team/bad-json")));
+        assertTrue(!malformed.getMessage().contains("visible-secret"));
+        assertNull(malformed.getCause());
         assertThrows(
                 RegistryException.class,
                 () -> client.listTags(repository("team/bad-results")));

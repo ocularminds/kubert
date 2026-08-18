@@ -1,6 +1,7 @@
 package io.github.ocularminds.blazra.registry;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -13,13 +14,17 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.Base64;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import io.github.ocularminds.blazra.model.RegistryCredentials;
 import io.github.ocularminds.blazra.model.RegistryRepository;
+import io.github.ocularminds.blazra.registry.auth.RegistryCredentialProvider;
 
 class OciRegistryClientTest {
     private HttpServer server;
@@ -61,6 +66,7 @@ class OciRegistryClientTest {
         AtomicInteger tagRequests = new AtomicInteger();
         AtomicReference<String> tokenQuery = new AtomicReference<>();
         server.createContext("/token", exchange -> {
+            assertNull(exchange.getRequestHeaders().getFirst("Authorization"));
             tokenQuery.set(exchange.getRequestURI().getQuery());
             respond(exchange, 200, "{\"access_token\":\"short-lived-token\"}");
         });
@@ -84,6 +90,69 @@ class OciRegistryClientTest {
         assertEquals(2, tagRequests.get());
         assertTrue(tokenQuery.get().contains("service=registry.example"));
         assertTrue(tokenQuery.get().contains("scope=repository:team/app:pull"));
+    }
+
+    @Test
+    void usesHostScopedCredentialsOnlyAfterABearerChallenge() throws Exception {
+        AtomicInteger tagRequests = new AtomicInteger();
+        AtomicReference<String> tokenAuthorization = new AtomicReference<>();
+        server.createContext("/token-private", exchange -> {
+            tokenAuthorization.set(exchange.getRequestHeaders().getFirst("Authorization"));
+            respond(exchange, 200, "{\"token\":\"private-bearer\"}");
+        });
+        server.createContext("/v2/private/app/tags/list", exchange -> {
+            tagRequests.incrementAndGet();
+            String authorization = exchange.getRequestHeaders().getFirst("Authorization");
+            if (authorization == null) {
+                exchange.getResponseHeaders().set(
+                        "WWW-Authenticate",
+                        "Bearer realm=\"" + baseUri + "token-private\","
+                                + "service=\"registry.example\","
+                                + "scope=\"repository:private/app:pull\"");
+                respond(exchange, 401, "{}");
+            } else {
+                assertEquals("Bearer private-bearer", authorization);
+                respond(exchange, 200, "{\"name\":\"private/app\",\"tags\":[\"1.2\"]}");
+            }
+        });
+        RegistryCredentialProvider credentials = repository -> Optional.of(
+                new RegistryCredentials("robot", "private-token"));
+
+        assertEquals(
+                List.of("1.2"),
+                client(credentials).listTags(repository("private/app")));
+        assertEquals(2, tagRequests.get());
+        assertEquals(basic("robot:private-token"), tokenAuthorization.get());
+    }
+
+    @Test
+    void supportsNativeBasicAuthenticationAcrossPages() throws Exception {
+        AtomicInteger requests = new AtomicInteger();
+        server.createContext("/v2/basic/app/tags/list", exchange -> {
+            requests.incrementAndGet();
+            String authorization = exchange.getRequestHeaders().getFirst("Authorization");
+            if (authorization == null) {
+                exchange.getResponseHeaders().set("WWW-Authenticate", "Basic realm=\"private\"");
+                respond(exchange, 401, "{}");
+                return;
+            }
+            assertEquals(basic("robot:private-token"), authorization);
+            if (exchange.getRequestURI().getQuery().contains("last=1.0")) {
+                respond(exchange, 200, "{\"name\":\"basic/app\",\"tags\":[\"1.1\"]}");
+            } else {
+                exchange.getResponseHeaders().set(
+                        "Link",
+                        "</v2/basic/app/tags/list?n=100&last=1.0>; rel=\"next\"");
+                respond(exchange, 200, "{\"name\":\"basic/app\",\"tags\":[\"1.0\"]}");
+            }
+        });
+        RegistryCredentialProvider credentials = repository -> Optional.of(
+                new RegistryCredentials("robot", "private-token"));
+
+        assertEquals(
+                List.of("1.0", "1.1"),
+                client(credentials).listTags(repository("basic/app")));
+        assertEquals(3, requests.get());
     }
 
     @Test
@@ -124,10 +193,24 @@ class OciRegistryClientTest {
         challengeOnly("large/app", "token-large");
         server.createContext("/v2/missing/app/tags/list", exchange ->
                 respond(exchange, 401, "{}"));
+        server.createContext("/v2/basic/app/tags/list", exchange -> {
+            exchange.getResponseHeaders().set("WWW-Authenticate", "Basic realm=\"private\"");
+            respond(exchange, 401, "{}");
+        });
+        server.createContext("/v2/digest/app/tags/list", exchange -> {
+            exchange.getResponseHeaders().set("WWW-Authenticate", "Digest realm=\"private\"");
+            respond(exchange, 401, "{}");
+        });
+        server.createContext("/v2/large-challenge/app/tags/list", exchange -> {
+            exchange.getResponseHeaders().set(
+                    "WWW-Authenticate",
+                    "Basic " + "a".repeat(2049));
+            respond(exchange, 401, "{}");
+        });
 
         for (String path : new String[]{
                 "empty/app", "conflict/app", "malformed/app", "empty-body/app", "array/app",
-                "large/app", "missing/app"
+                "large/app", "missing/app", "basic/app", "digest/app", "large-challenge/app"
         }) {
             assertThrows(
                     RegistryException.class,
@@ -141,7 +224,7 @@ class OciRegistryClientTest {
         server.createContext("/v2/error/app/tags/list", exchange ->
                 respond(exchange, 500, "sensitive upstream details"));
         server.createContext("/v2/json/app/tags/list", exchange ->
-                respond(exchange, 200, "not-json"));
+                respond(exchange, 200, "visible-secret-not-json"));
         server.createContext("/v2/name/app/tags/list", exchange ->
                 respond(exchange, 200, "{\"name\":\"other/app\",\"tags\":[]}"));
         server.createContext("/v2/object/app/tags/list", exchange ->
@@ -158,8 +241,13 @@ class OciRegistryClientTest {
                 () -> client().listTags(repository("error/app")));
         assertTrue(failure.getMessage().contains("HTTP 500"));
         assertTrue(!failure.getMessage().contains("sensitive"));
+        RegistryException malformed = assertThrows(
+                RegistryException.class,
+                () -> client().listTags(repository("json/app")));
+        assertTrue(!malformed.getMessage().contains("visible-secret"));
+        assertNull(malformed.getCause());
         for (String path : new String[]{
-                "json/app", "name/app", "object/app", "element/app", "tag/app", "empty/app"
+                "name/app", "object/app", "element/app", "tag/app", "empty/app"
         }) {
             assertThrows(
                     RegistryException.class,
@@ -238,6 +326,14 @@ class OciRegistryClientTest {
                         new ObjectMapper(),
                         null,
                         Duration.ofSeconds(1)));
+        assertThrows(
+                NullPointerException.class,
+                () -> new OciRegistryClient(
+                        HttpClient.newHttpClient(),
+                        new ObjectMapper(),
+                        ignored -> baseUri,
+                        Duration.ofSeconds(1),
+                        null));
         assertThrows(NullPointerException.class, () -> client().listTags(null));
 
         server.createContext("/v2/team/app/tags/list", exchange ->
@@ -287,15 +383,25 @@ class OciRegistryClientTest {
     }
 
     private OciRegistryClient client() {
+        return client(RegistryCredentialProvider.anonymous());
+    }
+
+    private OciRegistryClient client(RegistryCredentialProvider credentialProvider) {
         return new OciRegistryClient(
                 HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(1)).build(),
                 new ObjectMapper(),
                 ignored -> baseUri,
-                Duration.ofSeconds(2));
+                Duration.ofSeconds(2),
+                credentialProvider);
     }
 
     private static RegistryRepository repository(String path) {
         return new RegistryRepository("registry.example", path);
+    }
+
+    private static String basic(String value) {
+        return "Basic " + Base64.getEncoder().encodeToString(
+                value.getBytes(StandardCharsets.UTF_8));
     }
 
     private static void respond(HttpExchange exchange, int status, String body) throws IOException {

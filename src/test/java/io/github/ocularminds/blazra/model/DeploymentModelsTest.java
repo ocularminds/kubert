@@ -33,5 +33,17 @@ class DeploymentModelsTest {
         RegistryCredentials credentials = new RegistryCredentials("robot", "very-secret");
         assertFalse(credentials.toString().contains("very-secret"));
         assertThrows(IllegalArgumentException.class, () -> new RegistryCredentials("robot", ""));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new RegistryCredentials("bad:user", "token"));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new RegistryCredentials("bad\nuser", "token"));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new RegistryCredentials("a".repeat(257), "token"));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new RegistryCredentials("robot", "a".repeat(16 * 1024 + 1)));
     }
 }

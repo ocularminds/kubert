@@ -9,6 +9,8 @@ import io.github.ocularminds.blazra.registry.DockerHubRegistryClient;
 import io.github.ocularminds.blazra.registry.OciRegistryClient;
 import io.github.ocularminds.blazra.registry.RegistryClient;
 import io.github.ocularminds.blazra.registry.RegistryClientRouter;
+import io.github.ocularminds.blazra.registry.auth.DockerConfigCredentialProvider;
+import io.github.ocularminds.blazra.registry.auth.RegistryCredentialProvider;
 import io.github.ocularminds.blazra.repository.kubernetes.Fabric8DeploymentRepository;
 import io.github.ocularminds.blazra.runtime.PollingRunner;
 import io.github.ocularminds.blazra.service.DeploymentMonitor;
@@ -37,12 +39,18 @@ public final class BlazraApplication {
 
     static void run(BlazraConfig config) throws InterruptedException {
         try (KubernetesClient kubernetesClient = new KubernetesClientBuilder().build()) {
+            RegistryCredentialProvider ociCredentials = config.ociRegistryConfigPath()
+                    .<RegistryCredentialProvider>map(DockerConfigCredentialProvider::new)
+                    .orElseGet(RegistryCredentialProvider::anonymous);
             RegistryClient registryClient = new RegistryClientRouter(
                     new DockerHubRegistryClient(
-                            config.registryCredentials(),
+                            config.dockerHubCredentials(),
                             config.connectTimeout(),
                             config.requestTimeout()),
-                    new OciRegistryClient(config.connectTimeout(), config.requestTimeout()));
+                    new OciRegistryClient(
+                            config.connectTimeout(),
+                            config.requestTimeout(),
+                            ociCredentials));
             DeploymentMonitor monitor = new DeploymentMonitor(
                     new Fabric8DeploymentRepository(kubernetesClient),
                     new RegistryImageResolver(registryClient, config.updatePolicy()),

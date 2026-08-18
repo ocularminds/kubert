@@ -106,7 +106,7 @@ public final class DockerHubRegistryClient implements RegistryClient {
                     "identifier", registryCredentials.identifier(),
                     "secret", registryCredentials.secret()));
         } catch (JsonProcessingException exception) {
-            throw new RegistryException("could not create Docker Hub authentication request", exception);
+            throw new RegistryException("could not create Docker Hub authentication request");
         }
         HttpRequest request = HttpRequest.newBuilder(baseUri.resolve("v2/auth/token"))
                 .timeout(requestTimeout)
@@ -135,13 +135,17 @@ public final class DockerHubRegistryClient implements RegistryClient {
                 if (body.length > MAX_RESPONSE_BYTES) {
                     throw new RegistryException(operation + " returned too much data");
                 }
-                return objectMapper.readTree(body);
+                try {
+                    return objectMapper.readTree(body);
+                } catch (IOException exception) {
+                    throw new RegistryException(operation + " returned invalid JSON");
+                }
             }
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
             throw new RegistryException(operation + " was interrupted", exception);
         } catch (IOException exception) {
-            throw new RegistryException(operation + " failed", exception);
+            throw new RegistryException(operation + " response could not be read", exception);
         }
     }
 
