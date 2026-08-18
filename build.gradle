@@ -37,7 +37,7 @@ dependencyLocking {
 }
 
 application {
-    mainClass = 'osfx.kubert.KubertApplication'
+    mainClass = 'io.github.ocularminds.blazra.BlazraApplication'
 }
 
 tasks.withType(JavaCompile).configureEach {
