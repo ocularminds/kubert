@@ -6,10 +6,13 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import io.github.ocularminds.blazra.config.BlazraConfig;
 import io.github.ocularminds.blazra.registry.DockerHubRegistryClient;
+import io.github.ocularminds.blazra.registry.OciRegistryClient;
+import io.github.ocularminds.blazra.registry.RegistryClient;
+import io.github.ocularminds.blazra.registry.RegistryClientRouter;
 import io.github.ocularminds.blazra.repository.kubernetes.Fabric8DeploymentRepository;
 import io.github.ocularminds.blazra.runtime.PollingRunner;
 import io.github.ocularminds.blazra.service.DeploymentMonitor;
-import io.github.ocularminds.blazra.service.DockerHubImageResolver;
+import io.github.ocularminds.blazra.service.RegistryImageResolver;
 
 public final class BlazraApplication {
     private static final Logger LOGGER = Logger.getLogger(BlazraApplication.class.getName());
@@ -34,13 +37,15 @@ public final class BlazraApplication {
 
     static void run(BlazraConfig config) throws InterruptedException {
         try (KubernetesClient kubernetesClient = new KubernetesClientBuilder().build()) {
-            DockerHubRegistryClient registryClient = new DockerHubRegistryClient(
-                    config.registryCredentials(),
-                    config.connectTimeout(),
-                    config.requestTimeout());
+            RegistryClient registryClient = new RegistryClientRouter(
+                    new DockerHubRegistryClient(
+                            config.registryCredentials(),
+                            config.connectTimeout(),
+                            config.requestTimeout()),
+                    new OciRegistryClient(config.connectTimeout(), config.requestTimeout()));
             DeploymentMonitor monitor = new DeploymentMonitor(
                     new Fabric8DeploymentRepository(kubernetesClient),
-                    new DockerHubImageResolver(registryClient, config.updatePolicy()),
+                    new RegistryImageResolver(registryClient, config.updatePolicy()),
                     config.target(),
                     config.dryRun());
             try (PollingRunner runner = new PollingRunner(monitor, config.pollInterval())) {

@@ -86,6 +86,13 @@ helm template pinned "${chart_dir}" \
 assert_contains "${test_dir}/pinned.yaml" "nginx@${digest}"
 assert_contains "${test_dir}/pinned.yaml" "ghcr.io/ocularminds/blazra@${digest}"
 
+helm template public-oci "${chart_dir}" \
+  --kube-version 1.29.0 \
+  --set workload.image.repository=public.ecr.aws/example/team/app \
+  --set workload.image.tag=1.2.3 > "${test_dir}/public-oci.yaml"
+
+assert_contains "${test_dir}/public-oci.yaml" "public.ecr.aws/example/team/app:1.2.3"
+
 helm template external-access "${chart_dir}" \
   --namespace apps \
   --kube-version 1.29.0 \

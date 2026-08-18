@@ -20,6 +20,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import io.github.ocularminds.blazra.model.RegistryCredentials;
+import io.github.ocularminds.blazra.model.RegistryRepository;
 import org.mockito.Mockito;
 
 class DockerHubRegistryClientTest {
@@ -51,7 +52,9 @@ class DockerHubRegistryClientTest {
             }
         });
 
-        assertEquals(List.of("1.0", "1.2"), client(Optional.empty()).listTags("library/nginx"));
+        assertEquals(
+                List.of("1.0", "1.2"),
+                client(Optional.empty()).listTags(repository("library/nginx")));
     }
 
     @Test
@@ -71,7 +74,7 @@ class DockerHubRegistryClientTest {
         Optional<RegistryCredentials> credentials = Optional.of(
                 new RegistryCredentials("robot", "private-token"));
 
-        client(credentials).listTags("team/app");
+        client(credentials).listTags(repository("team/app"));
 
         assertTrue(authenticationBody.get().contains("robot"));
         assertTrue(authenticationBody.get().contains("private-token"));
@@ -85,7 +88,7 @@ class DockerHubRegistryClientTest {
 
         RegistryException exception = assertThrows(
                 RegistryException.class,
-                () -> client(Optional.empty()).listTags("team/app"));
+                () -> client(Optional.empty()).listTags(repository("team/app")));
 
         assertTrue(exception.getMessage().contains("HTTP 500"));
         assertTrue(!exception.getMessage().contains("sensitive"));
@@ -101,9 +104,15 @@ class DockerHubRegistryClientTest {
                 respond(exchange, 200, "{\"next\":\"https://attacker.example/tags\",\"results\":[]}"));
 
         DockerHubRegistryClient client = client(Optional.empty());
-        assertThrows(RegistryException.class, () -> client.listTags("team/bad-json"));
-        assertThrows(RegistryException.class, () -> client.listTags("team/bad-results"));
-        assertThrows(RegistryException.class, () -> client.listTags("team/unsafe-next"));
+        assertThrows(
+                RegistryException.class,
+                () -> client.listTags(repository("team/bad-json")));
+        assertThrows(
+                RegistryException.class,
+                () -> client.listTags(repository("team/bad-results")));
+        assertThrows(
+                RegistryException.class,
+                () -> client.listTags(repository("team/unsafe-next")));
     }
 
     @Test
@@ -111,10 +120,15 @@ class DockerHubRegistryClientTest {
         server.createContext("/v2/auth/token", exchange -> respond(exchange, 200, "{}"));
         DockerHubRegistryClient authenticated = client(Optional.of(
                 new RegistryCredentials("robot", "token")));
-        assertThrows(RegistryException.class, () -> authenticated.listTags("team/app"));
+        assertThrows(
+                RegistryException.class,
+                () -> authenticated.listTags(repository("team/app")));
 
         DockerHubRegistryClient anonymous = client(Optional.empty());
-        assertThrows(IllegalArgumentException.class, () -> anonymous.listTags("invalid"));
+        assertThrows(IllegalArgumentException.class, () -> anonymous.listTags(null));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> anonymous.listTags(new RegistryRepository("ghcr.io", "team/app")));
         assertThrows(
                 IllegalArgumentException.class,
                 () -> new DockerHubRegistryClient(
@@ -136,7 +150,9 @@ class DockerHubRegistryClientTest {
                 Optional.empty(),
                 Duration.ofSeconds(1),
                 Duration.ofSeconds(1));
-        assertThrows(IllegalArgumentException.class, () -> productionClient.listTags("invalid"));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> productionClient.listTags(new RegistryRepository("ghcr.io", "team/app")));
     }
 
     @Test
@@ -151,9 +167,15 @@ class DockerHubRegistryClientTest {
                         + "v2/namespaces/team/repositories/endless/tags\",\"results\":[]}"));
 
         DockerHubRegistryClient client = client(Optional.empty());
-        assertThrows(RegistryException.class, () -> client.listTags("team/oversized"));
-        assertThrows(RegistryException.class, () -> client.listTags("team/blank-next"));
-        assertThrows(RegistryException.class, () -> client.listTags("team/endless"));
+        assertThrows(
+                RegistryException.class,
+                () -> client.listTags(repository("team/oversized")));
+        assertThrows(
+                RegistryException.class,
+                () -> client.listTags(repository("team/blank-next")));
+        assertThrows(
+                RegistryException.class,
+                () -> client.listTags(repository("team/endless")));
     }
 
     @Test
@@ -170,7 +192,7 @@ class DockerHubRegistryClientTest {
                 baseUri,
                 Duration.ofSeconds(1));
 
-        assertThrows(RegistryException.class, () -> client.listTags("team/app"));
+        assertThrows(RegistryException.class, () -> client.listTags(repository("team/app")));
     }
 
     @Test
@@ -179,7 +201,9 @@ class DockerHubRegistryClientTest {
                 respond(exchange, 200, "{\"next\":null,\"results\":[]}"));
         Thread.currentThread().interrupt();
         try {
-            assertThrows(RegistryException.class, () -> client(Optional.empty()).listTags("team/app"));
+            assertThrows(
+                    RegistryException.class,
+                    () -> client(Optional.empty()).listTags(repository("team/app")));
             assertTrue(Thread.currentThread().isInterrupted());
         } finally {
             Thread.interrupted();
@@ -193,6 +217,10 @@ class DockerHubRegistryClientTest {
                 credentials,
                 baseUri,
                 Duration.ofSeconds(2));
+    }
+
+    private static RegistryRepository repository(String path) {
+        return RegistryRepository.dockerHub(path);
     }
 
     private static void respond(HttpExchange exchange, int status, String body) throws IOException {

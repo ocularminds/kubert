@@ -5,16 +5,35 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
 
-public record ImageReference(String sourceRepository, String dockerHubRepository, String tag) {
-    private static final Pattern COMPONENT = Pattern.compile("[a-z0-9]+(?:[._-][a-z0-9]+)*");
+public record ImageReference(
+        String sourceRepository,
+        RegistryRepository registryRepository,
+        String tag) {
+    private static final Pattern COMPONENT = Pattern.compile(
+            "[a-z0-9]+(?:(?:[._]|__|[-]+)[a-z0-9]+)*");
     private static final Pattern TAG = Pattern.compile("[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}");
     private static final Set<String> DOCKER_HUB_HOSTS = Set.of(
             "docker.io",
             "index.docker.io",
             "registry-1.docker.io");
 
+    public ImageReference {
+        if (sourceRepository == null
+                || sourceRepository.isBlank()
+                || sourceRepository.length() > 512
+                || !sourceRepository.equals(sourceRepository.toLowerCase(Locale.ROOT))) {
+            throw new IllegalArgumentException("source repository is invalid");
+        }
+        if (registryRepository == null) {
+            throw new IllegalArgumentException("registry repository is required");
+        }
+        if (tag == null || !TAG.matcher(tag).matches()) {
+            throw new IllegalArgumentException("image tag is invalid");
+        }
+    }
+
     public static Optional<ImageReference> parse(String value) {
-        if (value == null || value.isBlank() || value.indexOf('@') >= 0) {
+        if (value == null || value.isBlank() || value.length() > 512 || value.indexOf('@') >= 0) {
             return Optional.empty();
         }
         int lastSlash = value.lastIndexOf('/');
@@ -31,33 +50,31 @@ public record ImageReference(String sourceRepository, String dockerHubRepository
         }
 
         String[] path = sourceRepository.split("/", -1);
-        int offset = 0;
+        RegistryRepository registryRepository;
         if (path.length > 1 && isRegistryHost(path[0])) {
-            if (!DOCKER_HUB_HOSTS.contains(path[0].toLowerCase(Locale.ROOT))) {
+            String host = path[0];
+            String repositoryPath = joinPath(path, 1);
+            if (DOCKER_HUB_HOSTS.contains(host)) {
+                repositoryPath = dockerHubPath(path, 1);
+                if (repositoryPath == null) {
+                    return Optional.empty();
+                }
+                registryRepository = RegistryRepository.dockerHub(repositoryPath);
+            } else {
+                try {
+                    registryRepository = new RegistryRepository(host, repositoryPath);
+                } catch (IllegalArgumentException exception) {
+                    return Optional.empty();
+                }
+            }
+        } else {
+            String repositoryPath = dockerHubPath(path, 0);
+            if (repositoryPath == null) {
                 return Optional.empty();
             }
-            offset = 1;
+            registryRepository = RegistryRepository.dockerHub(repositoryPath);
         }
-
-        int componentCount = path.length - offset;
-        String namespace;
-        String repository;
-        if (componentCount == 1) {
-            namespace = "library";
-            repository = path[offset];
-        } else if (componentCount == 2) {
-            namespace = path[offset];
-            repository = path[offset + 1];
-        } else {
-            return Optional.empty();
-        }
-        if (!COMPONENT.matcher(namespace).matches() || !COMPONENT.matcher(repository).matches()) {
-            return Optional.empty();
-        }
-        return Optional.of(new ImageReference(
-                sourceRepository,
-                namespace + "/" + repository,
-                tag));
+        return Optional.of(new ImageReference(sourceRepository, registryRepository, tag));
     }
 
     public String withTag(String replacement) {
@@ -69,5 +86,29 @@ public record ImageReference(String sourceRepository, String dockerHubRepository
 
     private static boolean isRegistryHost(String value) {
         return value.contains(".") || value.contains(":") || value.equals("localhost");
+    }
+
+    private static String dockerHubPath(String[] path, int offset) {
+        int componentCount = path.length - offset;
+        if (componentCount == 1 && COMPONENT.matcher(path[offset]).matches()) {
+            return "library/" + path[offset];
+        }
+        if (componentCount == 2
+                && COMPONENT.matcher(path[offset]).matches()
+                && COMPONENT.matcher(path[offset + 1]).matches()) {
+            return path[offset] + "/" + path[offset + 1];
+        }
+        return null;
+    }
+
+    private static String joinPath(String[] components, int offset) {
+        StringBuilder joined = new StringBuilder();
+        for (int index = offset; index < components.length; index++) {
+            if (index > offset) {
+                joined.append('/');
+            }
+            joined.append(components[index]);
+        }
+        return joined.toString();
     }
 }
