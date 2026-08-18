@@ -53,24 +53,25 @@ public final class KubertConfig {
 
     public static KubertConfig fromEnvironment(Map<String, String> environment) {
         Objects.requireNonNull(environment, "environment is required");
+        EnvironmentVariables variables = new EnvironmentVariables(environment);
         DeploymentTarget target = new DeploymentTarget(
-                environment.getOrDefault("KUBERT_NAMESPACE", "default"),
-                required(environment, "KUBERT_DEPLOYMENT"),
-                required(environment, "KUBERT_CONTAINER"));
+                variables.value("NAMESPACE").orElse("default"),
+                required(variables, "DEPLOYMENT"),
+                required(variables, "CONTAINER"));
         Duration pollInterval = duration(
-                environment,
-                "KUBERT_POLL_INTERVAL",
+                variables,
+                "POLL_INTERVAL",
                 DEFAULT_POLL_INTERVAL);
         Duration connectTimeout = duration(
-                environment,
-                "KUBERT_CONNECT_TIMEOUT",
+                variables,
+                "CONNECT_TIMEOUT",
                 DEFAULT_CONNECT_TIMEOUT);
         Duration requestTimeout = duration(
-                environment,
-                "KUBERT_REQUEST_TIMEOUT",
+                variables,
+                "REQUEST_TIMEOUT",
                 DEFAULT_REQUEST_TIMEOUT);
-        boolean dryRun = booleanValue(environment, "KUBERT_DRY_RUN", false);
-        UpdatePolicy updatePolicy = updatePolicy(environment.get("KUBERT_UPDATE_POLICY"));
+        boolean dryRun = booleanValue(variables, "DRY_RUN", false);
+        UpdatePolicy updatePolicy = updatePolicy(variables.value("UPDATE_POLICY").orElse(null));
         Optional<RegistryCredentials> credentials = credentials(environment);
         return new KubertConfig(
                 target,
@@ -123,39 +124,40 @@ public final class KubertConfig {
         return Optional.of(new RegistryCredentials(identifier, secret));
     }
 
-    private static String required(Map<String, String> environment, String name) {
-        String value = environment.get(name);
-        if (isBlank(value)) {
-            throw new IllegalArgumentException(name + " is required");
-        }
-        return value;
+    private static String required(EnvironmentVariables variables, String suffix) {
+        return variables.value(suffix).orElseThrow(
+                () -> new IllegalArgumentException(variables.currentName(suffix) + " is required"));
     }
 
     private static Duration duration(
-            Map<String, String> environment,
-            String name,
+            EnvironmentVariables variables,
+            String suffix,
             Duration defaultValue) {
-        String value = environment.get(name);
-        if (isBlank(value)) {
+        Optional<String> value = variables.value(suffix);
+        if (value.isEmpty()) {
             return defaultValue;
         }
         try {
-            return Duration.parse(value);
+            return Duration.parse(value.orElseThrow());
         } catch (DateTimeParseException exception) {
-            throw new IllegalArgumentException(name + " must be an ISO-8601 duration", exception);
+            throw new IllegalArgumentException(
+                    variables.currentName(suffix) + " must be an ISO-8601 duration",
+                    exception);
         }
     }
 
     private static boolean booleanValue(
-            Map<String, String> environment,
-            String name,
+            EnvironmentVariables variables,
+            String suffix,
             boolean defaultValue) {
-        String value = environment.get(name);
-        if (isBlank(value)) {
+        Optional<String> configuredValue = variables.value(suffix);
+        if (configuredValue.isEmpty()) {
             return defaultValue;
         }
+        String value = configuredValue.orElseThrow();
         if (!value.equalsIgnoreCase("true") && !value.equalsIgnoreCase("false")) {
-            throw new IllegalArgumentException(name + " must be true or false");
+            throw new IllegalArgumentException(
+                    variables.currentName(suffix) + " must be true or false");
         }
         return Boolean.parseBoolean(value);
     }
@@ -168,7 +170,7 @@ public final class KubertConfig {
             return UpdatePolicy.valueOf(value.toUpperCase(java.util.Locale.ROOT));
         } catch (IllegalArgumentException exception) {
             throw new IllegalArgumentException(
-                    "KUBERT_UPDATE_POLICY must be PATCH, MINOR, or MAJOR",
+                    "BLAZRA_UPDATE_POLICY must be PATCH, MINOR, or MAJOR",
                     exception);
         }
     }
