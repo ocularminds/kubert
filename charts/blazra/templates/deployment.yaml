@@ -1,9 +1,9 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "kubert.fullname" . }}
+  name: {{ include "blazra.fullname" . }}
   labels:
-    {{- include "kubert.labels" . | nindent 4 }}
+    {{- include "blazra.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.workload.replicaCount }}
   strategy:
@@ -13,15 +13,15 @@ spec:
       maxSurge: 1
   selector:
     matchLabels:
-      {{- include "kubert.selectorLabels" . | nindent 6 }}
+      {{- include "blazra.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       annotations:
-        {{- include "kubert.podAnnotations" . | nindent 8 }}
+        {{- include "blazra.podAnnotations" . | nindent 8 }}
       labels:
-        {{- include "kubert.podLabels" . | nindent 8 }}
+        {{- include "blazra.podLabels" . | nindent 8 }}
     spec:
-      serviceAccountName: {{ include "kubert.serviceAccountName" . }}
+      serviceAccountName: {{ include "blazra.serviceAccountName" . }}
       automountServiceAccountToken: false
       terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
       {{- with .Values.imagePullSecrets }}
@@ -29,52 +29,52 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       initContainers:
-        - name: kubert
-          image: {{ include "kubert.sidecarImage" . | quote }}
-          imagePullPolicy: {{ .Values.kubert.image.pullPolicy }}
+        - name: blazra
+          image: {{ include "blazra.sidecarImage" . | quote }}
+          imagePullPolicy: {{ .Values.blazra.image.pullPolicy }}
           restartPolicy: Always
           env:
-            - name: KUBERT_NAMESPACE
+            - name: BLAZRA_NAMESPACE
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.namespace
-            - name: KUBERT_DEPLOYMENT
-              value: {{ include "kubert.fullname" . }}
-            - name: KUBERT_CONTAINER
-              value: {{ .Values.workload.containerName }}
-            - name: KUBERT_POLL_INTERVAL
-              value: {{ .Values.kubert.pollInterval | quote }}
-            - name: KUBERT_UPDATE_POLICY
-              value: {{ .Values.kubert.updatePolicy | quote }}
-            - name: KUBERT_CONNECT_TIMEOUT
-              value: {{ .Values.kubert.connectTimeout | quote }}
-            - name: KUBERT_REQUEST_TIMEOUT
-              value: {{ .Values.kubert.requestTimeout | quote }}
-            - name: KUBERT_DRY_RUN
-              value: {{ .Values.kubert.dryRun | quote }}
-            {{- with .Values.kubert.registryCredentials.existingSecret }}
+            - name: BLAZRA_DEPLOYMENT
+              value: {{ include "blazra.fullname" . | quote }}
+            - name: BLAZRA_CONTAINER
+              value: {{ .Values.workload.containerName | quote }}
+            - name: BLAZRA_POLL_INTERVAL
+              value: {{ .Values.blazra.pollInterval | quote }}
+            - name: BLAZRA_UPDATE_POLICY
+              value: {{ .Values.blazra.updatePolicy | quote }}
+            - name: BLAZRA_CONNECT_TIMEOUT
+              value: {{ .Values.blazra.connectTimeout | quote }}
+            - name: BLAZRA_REQUEST_TIMEOUT
+              value: {{ .Values.blazra.requestTimeout | quote }}
+            - name: BLAZRA_DRY_RUN
+              value: {{ .Values.blazra.dryRun | quote }}
+            {{- with .Values.blazra.registryCredentials.existingSecret }}
             - name: DOCKER_HUB_USERNAME
               valueFrom:
                 secretKeyRef:
-                  name: {{ . }}
-                  key: {{ $.Values.kubert.registryCredentials.usernameKey }}
+                  name: {{ . | quote }}
+                  key: {{ $.Values.blazra.registryCredentials.usernameKey | quote }}
             - name: DOCKER_HUB_TOKEN
               valueFrom:
                 secretKeyRef:
-                  name: {{ . }}
-                  key: {{ $.Values.kubert.registryCredentials.tokenKey }}
+                  name: {{ . | quote }}
+                  key: {{ $.Values.blazra.registryCredentials.tokenKey | quote }}
             {{- end }}
           securityContext:
-            {{- toYaml .Values.kubert.securityContext | nindent 12 }}
+            {{- toYaml .Values.blazra.securityContext | nindent 12 }}
           resources:
-            {{- toYaml .Values.kubert.resources | nindent 12 }}
+            {{- toYaml .Values.blazra.resources | nindent 12 }}
           volumeMounts:
             - name: kubernetes-api-access
               mountPath: /var/run/secrets/kubernetes.io/serviceaccount
               readOnly: true
       containers:
         - name: {{ .Values.workload.containerName }}
-          image: {{ include "kubert.workloadImage" . | quote }}
+          image: {{ include "blazra.workloadImage" . | quote }}
           imagePullPolicy: {{ .Values.workload.image.pullPolicy }}
           {{- with .Values.workload.command }}
           command:

@@ -1,6 +1,6 @@
 apiVersion: v2
-name: kubert
-description: Run Kubert as a native sidecar beside a single-replica workload
+name: blazra
+description: Run Blazra as a native sidecar beside a single-replica workload
 type: application
 version: 0.2.0
 appVersion: "0.2.0"

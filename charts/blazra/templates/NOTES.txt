@@ -1,0 +1,12 @@
+Blazra is running as a native sidecar in Deployment {{ include "blazra.fullname" . }}.
+
+Inspect the sidecar logs:
+  kubectl logs -n {{ .Release.Namespace }} deployment/{{ include "blazra.fullname" . }} -c blazra
+
+Check the managed image:
+  kubectl get deployment -n {{ .Release.Namespace }} {{ include "blazra.fullname" . }} \
+    -o jsonpath='{.spec.template.spec.containers[?(@.name=="{{ .Values.workload.containerName }}")].image}'
+
+{{- if .Values.blazra.dryRun }}
+Dry-run mode is enabled; Blazra will report updates without changing the Deployment.
+{{- end }}

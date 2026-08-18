@@ -43,7 +43,7 @@ sidecar model: an init container with `restartPolicy: Always`. Helm 3.8+ or
 Helm 4 is required for an OCI install.
 
 ```shell
-helm install demo oci://ghcr.io/ocularminds/charts/kubert \
+helm install demo oci://ghcr.io/ocularminds/charts/blazra \
   --version 0.2.0 \
   --namespace apps \
   --create-namespace \
@@ -55,7 +55,7 @@ helm install demo oci://ghcr.io/ocularminds/charts/kubert \
 For local chart development:
 
 ```shell
-helm install demo ./charts/kubert --namespace apps --create-namespace
+helm install demo ./charts/blazra --namespace apps --create-namespace
 ```
 
 The chart is intentionally limited to one workload replica. A sidecar runs in
@@ -77,7 +77,7 @@ Public repositories need no credentials. For a private repository, provision a
 Secret through your secret manager with `username` and `token` keys, then set:
 
 ```yaml
-kubert:
+blazra:
   registryCredentials:
     existingSecret: docker-hub
     usernameKey: username
@@ -95,16 +95,16 @@ values.
 | `workload.image.repository` | `nginx` | Docker Hub workload repository |
 | `workload.image.tag` | `1.30.4` | Initial numeric workload tag |
 | `workload.image.digest` | empty | Immutable workload digest; disables updates while set |
-| `workload.containerName` | `app` | Container Kubert is allowed to update |
-| `kubert.image.repository` | `ghcr.io/ocularminds/kubert` | Kubert sidecar image |
-| `kubert.pollInterval` | `PT5M` | Check interval, from 10 seconds to 24 hours |
-| `kubert.updatePolicy` | `PATCH` | Allow `PATCH`, `MINOR`, or `MAJOR` version scope |
-| `kubert.dryRun` | `false` | Report changes without applying them |
-| `kubert.registryCredentials.existingSecret` | empty | Optional Docker Hub Secret |
+| `workload.containerName` | `app` | Container Blazra is allowed to update |
+| `blazra.image.repository` | `ghcr.io/ocularminds/kubert` | Blazra sidecar image during the registry migration |
+| `blazra.pollInterval` | `PT5M` | Check interval, from 10 seconds to 24 hours |
+| `blazra.updatePolicy` | `PATCH` | Allow `PATCH`, `MINOR`, or `MAJOR` version scope |
+| `blazra.dryRun` | `false` | Report changes without applying them |
+| `blazra.registryCredentials.existingSecret` | empty | Optional Docker Hub Secret |
 | `rbac.create` | `true` | Create the least-privilege Role and binding |
 | `service.enabled` | `true` | Expose the primary workload with a Service |
 
-See [`values.yaml`](charts/kubert/values.yaml) for the complete configuration.
+See [`values.yaml`](charts/blazra/values.yaml) for the complete configuration.
 
 ## Security model
 
@@ -129,16 +129,20 @@ running the image directly.
 
 | Variable | Required | Default | Purpose |
 | --- | --- | --- | --- |
-| `KUBERT_DEPLOYMENT` | Yes | — | Deployment name |
-| `KUBERT_CONTAINER` | Yes | — | Container to update |
-| `KUBERT_NAMESPACE` | No | `default` | Deployment namespace |
-| `KUBERT_POLL_INTERVAL` | No | `PT5M` | ISO-8601 duration, 10 seconds to 24 hours |
-| `KUBERT_UPDATE_POLICY` | No | `PATCH` | Maximum allowed version scope: `PATCH`, `MINOR`, or `MAJOR` |
-| `KUBERT_CONNECT_TIMEOUT` | No | `PT5S` | Docker Hub connection timeout |
-| `KUBERT_REQUEST_TIMEOUT` | No | `PT15S` | Docker Hub request timeout |
-| `KUBERT_DRY_RUN` | No | `false` | Report updates without writing them |
+| `BLAZRA_DEPLOYMENT` | Yes | — | Deployment name |
+| `BLAZRA_CONTAINER` | Yes | — | Container to update |
+| `BLAZRA_NAMESPACE` | No | `default` | Deployment namespace |
+| `BLAZRA_POLL_INTERVAL` | No | `PT5M` | ISO-8601 duration, 10 seconds to 24 hours |
+| `BLAZRA_UPDATE_POLICY` | No | `PATCH` | Maximum allowed version scope: `PATCH`, `MINOR`, or `MAJOR` |
+| `BLAZRA_CONNECT_TIMEOUT` | No | `PT5S` | Docker Hub connection timeout |
+| `BLAZRA_REQUEST_TIMEOUT` | No | `PT15S` | Docker Hub request timeout |
+| `BLAZRA_DRY_RUN` | No | `false` | Report updates without writing them |
 | `DOCKER_HUB_USERNAME` | No | — | Configure together with the token |
 | `DOCKER_HUB_TOKEN` | No | — | Scoped Docker Hub access token |
+
+The equivalent `KUBERT_*` names remain deprecated aliases for direct-image
+users. Do not set both names for the same option; conflicting values are
+rejected during startup.
 
 ## Design
 
@@ -162,8 +166,8 @@ checksum, dependencies are locked, and CI pins third-party Actions by commit.
 
 ```shell
 ./gradlew clean check installDist
-charts/kubert/tests/render.sh
-docker build --tag kubert:local .
+charts/blazra/tests/render.sh
+docker build --tag blazra:local .
 ```
 
 Tests are separated under `src/test/java` and mirror production packages. They

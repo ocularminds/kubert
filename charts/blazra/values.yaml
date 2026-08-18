@@ -19,7 +19,7 @@ workload:
   resources: {}
   securityContext: {}
 
-kubert:
+blazra:
   image:
     repository: ghcr.io/ocularminds/kubert
     tag: ""

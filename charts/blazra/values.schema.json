@@ -1,11 +1,11 @@
 {
   "$schema": "https://json-schema.org/draft-07/schema#",
-  "title": "Kubert chart values",
+  "title": "Blazra chart values",
   "type": "object",
   "additionalProperties": false,
   "required": [
     "workload",
-    "kubert",
+    "blazra",
     "serviceAccount",
     "rbac",
     "service",
@@ -82,7 +82,7 @@
         }
       }
     },
-    "kubert": {
+    "blazra": {
       "type": "object",
       "additionalProperties": false,
       "required": [
