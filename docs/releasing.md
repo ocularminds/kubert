@@ -2,10 +2,11 @@
 
 Blazra releases are built once for `linux/amd64` and `linux/arm64`, then pushed
 to GHCR and `docker.io/speedoo/blazra` by `.github/workflows/release.yml`. Google
-Artifact Registry and Azure Container Registry are optional mirrors. The
-workflow also pushes the Helm chart to GHCR and creates a GitHub Release with
-the packaged chart, image references, and SHA-256 checksums. The same manifest
-is pushed to the legacy Kubert GHCR and Docker Hub paths during migration.
+Artifact Registry, Azure Container Registry, and Amazon ECR Public are optional
+mirrors. The workflow also pushes the Helm chart to GHCR and creates a GitHub
+Release with the packaged chart, image references, and SHA-256 checksums. The
+same manifest is pushed to the legacy Kubert GHCR and Docker Hub paths during
+migration.
 
 ## Release environment
 
@@ -28,6 +29,9 @@ Add these optional environment variables to enable the cloud mirrors:
 | `GCP_WORKLOAD_IDENTITY_PROVIDER` | `projects/123/locations/global/workloadIdentityPools/github/providers/blazra` | GitHub OIDC provider |
 | `GCP_SERVICE_ACCOUNT` | `blazra-publisher@example-project.iam.gserviceaccount.com` | Artifact Registry writer |
 | `ACR_LOGIN_SERVER` | `example.azurecr.io` | Public Azure registry hostname |
+| `AWS_ACCOUNT_ID` | `123456789012` | Account owning the ECR Public repository |
+| `AWS_ROLE_TO_ASSUME` | `arn:aws:iam::123456789012:role/blazra-release` | OIDC release role |
+| `ECR_PUBLIC_REGISTRY_ALIAS` | `example` | Active public registry alias |
 
 Add the Docker Hub values as repository or `release` environment secrets. Add
 the Azure values only when enabling its mirror:
@@ -40,16 +44,16 @@ the Azure values only when enabling its mirror:
 | `AZURE_TENANT_ID` | Microsoft Entra tenant ID |
 | `AZURE_SUBSCRIPTION_ID` | Subscription containing the target registry |
 
-`GITHUB_TOKEN` publishes the GitHub image and Helm chart. No long-lived Google
-or Azure credential is stored: GitHub exchanges its OIDC token for short-lived
-cloud credentials during the release job. The workflow requires Docker Hub and
-validates each optional cloud group as an all-or-nothing configuration before
-authenticating or publishing.
+`GITHUB_TOKEN` publishes the GitHub image and Helm chart. No long-lived Google,
+Azure, or AWS credential is stored: GitHub exchanges its OIDC token for
+short-lived cloud credentials during the release job. The workflow requires
+Docker Hub and validates each optional cloud group as an all-or-nothing
+configuration before authenticating or publishing.
 
 ## Registry access
 
-- Rename the GitHub repository to `ocularminds/blazra` before creating the
-  release tag. Update Google and Azure federated credentials to allow the new
+- Confirm the GitHub repository is `ocularminds/blazra` before creating the
+  release tag. Google, Azure, and AWS federated credentials must allow the
   `repo:ocularminds/blazra:environment:release` subject.
 - Create `docker.io/speedoo/blazra` as a public Docker Hub
   repository and use an organization access token where available. Keep
@@ -62,6 +66,8 @@ authenticating or publishing.
   that registry public, so use a dedicated Blazra registry.
 - Confirm the GHCR package visibility is public after its first publication.
   Keep `ghcr.io/ocularminds/kubert` public as the compatibility alias.
+- Follow the [Amazon ECR Public setup guide](aws-ecr-public.md) to create the
+  public repository and least-privilege OIDC role before enabling that mirror.
 
 ## Publish a version
 
@@ -70,11 +76,11 @@ Update `version` in `build.gradle` plus `version` and `appVersion` in
 tag from `master`:
 
 ```shell
-git tag -s v0.3.0 -m "Blazra 0.3.0"
-git push origin v0.3.0
+git tag -a v0.3.1 -m "Blazra 0.3.1"
+git push origin v0.3.1
 ```
 
-The tag triggers the release workflow. It publishes `0.3.0`, `0.3`, and
+The tag triggers the release workflow. It publishes `0.3.1`, `0.3`, and
 `latest` tags and creates the GitHub Release only after every configured
 registry and the Helm chart have accepted their artifacts.
 
@@ -83,7 +89,7 @@ fix the external configuration and dispatch the reviewed workflow from
 `master` without deleting or moving the tag:
 
 ```shell
-gh workflow run Release --ref master -f release_tag=v0.3.0
+gh workflow run Release --ref master -f release_tag=v0.3.1
 ```
 
 The recovery path checks out the existing tag, verifies that `HEAD` resolves to
@@ -97,11 +103,11 @@ resolve the version tag to the manifest digest recorded in that file. Verify
 both canonical and compatibility paths:
 
 ```shell
-docker buildx imagetools inspect ghcr.io/ocularminds/blazra:0.3.0
-docker buildx imagetools inspect docker.io/speedoo/blazra:0.3.0
-docker buildx imagetools inspect ghcr.io/ocularminds/kubert:0.3.0
-docker buildx imagetools inspect docker.io/speedoo/kubert:0.3.0
-helm show chart oci://ghcr.io/ocularminds/charts/blazra --version 0.3.0
+docker buildx imagetools inspect ghcr.io/ocularminds/blazra:0.3.1
+docker buildx imagetools inspect docker.io/speedoo/blazra:0.3.1
+docker buildx imagetools inspect ghcr.io/ocularminds/kubert:0.3.1
+docker buildx imagetools inspect docker.io/speedoo/kubert:0.3.1
+helm show chart oci://ghcr.io/ocularminds/charts/blazra --version 0.3.1
 ```
 
 Finally, perform an unauthenticated pull from a clean Docker configuration to

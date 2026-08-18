@@ -2,8 +2,8 @@ apiVersion: v2
 name: blazra
 description: Run Blazra as a native sidecar beside a single-replica workload
 type: application
-version: 0.3.0
-appVersion: "0.3.0"
+version: 0.3.1
+appVersion: "0.3.1"
 kubeVersion: ">=1.29.0-0"
 home: https://github.com/ocularminds/blazra
 icon: https://raw.githubusercontent.com/ocularminds/blazra/master/docs/blazra.svg

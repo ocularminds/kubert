@@ -36,6 +36,10 @@ jobs:
       GAR_IMAGE: ${{ vars.GAR_REGISTRY }}/${{ vars.GAR_PROJECT_ID }}/${{ vars.GAR_REPOSITORY }}/blazra
       ACR_LOGIN_SERVER: ${{ vars.ACR_LOGIN_SERVER }}
       ACR_IMAGE: ${{ vars.ACR_LOGIN_SERVER }}/blazra
+      AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
+      AWS_ROLE_TO_ASSUME: ${{ vars.AWS_ROLE_TO_ASSUME }}
+      ECR_PUBLIC_REGISTRY_ALIAS: ${{ vars.ECR_PUBLIC_REGISTRY_ALIAS }}
+      ECR_PUBLIC_IMAGE: public.ecr.aws/${{ vars.ECR_PUBLIC_REGISTRY_ALIAS }}/blazra
     steps:
       - name: Check out source
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -64,6 +68,9 @@ jobs:
           AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
           AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
+          AWS_ROLE_TO_ASSUME: ${{ vars.AWS_ROLE_TO_ASSUME }}
+          ECR_PUBLIC_REGISTRY_ALIAS: ${{ vars.ECR_PUBLIC_REGISTRY_ALIAS }}
         run: scripts/verify-release-config.sh
 
       - name: Log in to GitHub Container Registry
@@ -110,6 +117,23 @@ jobs:
         if: ${{ env.ACR_LOGIN_SERVER != '' }}
         run: az acr login --name "${ACR_LOGIN_SERVER%%.*}"
 
+      - name: Authenticate to AWS with OIDC
+        if: ${{ env.AWS_ROLE_TO_ASSUME != '' }}
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
+        with:
+          aws-region: us-east-1
+          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }}
+          role-session-name: BlazraRelease-${{ github.run_id }}
+          role-duration-seconds: 1800
+          allowed-account-ids: ${{ vars.AWS_ACCOUNT_ID }}
+          mask-aws-account-id: true
+
+      - name: Log in to Amazon ECR Public
+        if: ${{ env.AWS_ROLE_TO_ASSUME != '' }}
+        uses: aws-actions/amazon-ecr-login@d539f0932e70871a027e9d5a9d8fc38589180a64 # v2.1.6
+        with:
+          registry-type: public
+
       - name: Set up Buildx
         uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
 
@@ -128,6 +152,9 @@ jobs:
             fi
             if [[ -n "${ACR_LOGIN_SERVER}" ]]; then
               echo "${ACR_IMAGE}"
+            fi
+            if [[ -n "${AWS_ROLE_TO_ASSUME}" ]]; then
+              echo "${ECR_PUBLIC_IMAGE}"
             fi
             echo 'BLAZRA_IMAGES'
           } >> "${GITHUB_OUTPUT}"
@@ -197,6 +224,9 @@ jobs:
             fi
             if [[ -n "${ACR_LOGIN_SERVER}" ]]; then
               echo "${ACR_IMAGE}:${RELEASE_TAG#v}"
+            fi
+            if [[ -n "${AWS_ROLE_TO_ASSUME}" ]]; then
+              echo "${ECR_PUBLIC_IMAGE}:${RELEASE_TAG#v}"
             fi
             echo
             echo "Kubert compatibility aliases:"
