@@ -11,17 +11,18 @@
 [![Kubernetes 1.29+](https://img.shields.io/badge/Kubernetes-1.29%2B-326CE5?logo=kubernetes&logoColor=white)](https://kubernetes.io/docs/concepts/workloads/pods/sidecar-containers/)
 [![Java 17](https://img.shields.io/badge/Java-17-ED8B00?logo=openjdk&logoColor=white)](https://adoptium.net/)
 
-Blazra watches one container in a Kubernetes Deployment and updates its Docker
-Hub image when a newer numeric tag is available. The Helm chart runs Blazra as
-a Kubernetes-native sidecar beside that workload and grants access to exactly
-one Deployment.
+Blazra watches one container in a Kubernetes Deployment and updates its image
+when a newer numeric tag is available. It supports Docker Hub and anonymous
+public OCI Distribution registries, including GHCR and ECR Public. The Helm
+chart runs Blazra as a Kubernetes-native sidecar beside that workload and
+grants access to exactly one Deployment.
 
 Supported tags contain two to four numeric components, with an optional `v`
-prefix—for example `1.4`, `v2.3.1`, or `3.1.0.12`. Digests, non-Docker Hub
-registries, and non-numeric release tags are deliberately left unchanged. The
-default `PATCH` policy keeps the first two numeric components fixed; `MINOR`
-keeps the first component fixed, while `MAJOR` permits any newer numeric track.
-Updates also preserve whether the current tag uses a `v` prefix.
+prefix—for example `1.4`, `v2.3.1`, or `3.1.0.12`. Digests, private non-Docker
+Hub registries, and non-numeric release tags are deliberately left unchanged.
+The default `PATCH` policy keeps the first two numeric components fixed;
+`MINOR` keeps the first component fixed, while `MAJOR` permits any newer
+numeric track. Updates also preserve whether the current tag uses a `v` prefix.
 
 ## Published artifacts
 
@@ -68,7 +69,7 @@ helm install demo ./charts/blazra --namespace apps --create-namespace
 ```
 
 The chart is intentionally limited to one workload replica. A sidecar runs in
-every Pod, so additional replicas would duplicate Docker Hub and Kubernetes API
+every Pod, so additional replicas would duplicate registry and Kubernetes API
 traffic. The values schema rejects replica counts other than one.
 
 ### Existing workloads
@@ -97,11 +98,31 @@ Use a scoped Docker Hub access token, never an account password. The chart does
 not accept secret values directly, so they cannot be persisted in Helm release
 values.
 
+### Public OCI registries
+
+Use a fully qualified repository for public GHCR, Google Artifact Registry,
+Azure Container Registry, Amazon ECR Public, or another OCI Distribution
+registry. For example:
+
+```yaml
+workload:
+  image:
+    repository: public.ecr.aws/example/team/app
+    tag: 1.2.3
+```
+
+Anonymous registries may issue a short-lived bearer token challenge. Blazra
+accepts that flow only when the token service uses the registry's own HTTPS
+origin. Registry names must be fully qualified public DNS names; literal IP,
+localhost, `.local`, and `.internal` destinations are rejected. Private OCI
+registry credentials are not yet supported; Docker Hub credentials remain
+isolated to Docker Hub requests.
+
 ## Important values
 
 | Value | Default | Purpose |
 | --- | --- | --- |
-| `workload.image.repository` | `nginx` | Docker Hub workload repository |
+| `workload.image.repository` | `nginx` | Docker Hub or fully qualified public OCI repository |
 | `workload.image.tag` | `1.30.4` | Initial numeric workload tag |
 | `workload.image.digest` | empty | Immutable workload digest; disables updates while set |
 | `workload.containerName` | `app` | Container Blazra is allowed to update |
@@ -126,8 +147,9 @@ See [`values.yaml`](charts/blazra/values.yaml) for the complete configuration.
   profile.
 - The runtime image is shell-free and distroless. Build and runtime bases are
   pinned by digest, while release images include provenance and an SBOM.
-- Docker Hub responses, pagination, timeouts, and origin are bounded and
-  validated. Error messages do not include upstream bodies or credentials.
+- Registry responses, pagination, timeouts, bearer tokens, and origins are
+  bounded and validated. Error messages do not include upstream bodies or
+  credentials, and Docker Hub credentials are never routed to another host.
 - Kubernetes writes use the resource version and re-check the current image to
   avoid overwriting concurrent changes.
 - CodeQL scans Java and GitHub Actions on every change and weekly. Dependency
@@ -146,8 +168,8 @@ running the image directly.
 | `BLAZRA_NAMESPACE` | No | `default` | Deployment namespace |
 | `BLAZRA_POLL_INTERVAL` | No | `PT5M` | ISO-8601 duration, 10 seconds to 24 hours |
 | `BLAZRA_UPDATE_POLICY` | No | `PATCH` | Maximum allowed version scope: `PATCH`, `MINOR`, or `MAJOR` |
-| `BLAZRA_CONNECT_TIMEOUT` | No | `PT5S` | Docker Hub connection timeout |
-| `BLAZRA_REQUEST_TIMEOUT` | No | `PT15S` | Docker Hub request timeout |
+| `BLAZRA_CONNECT_TIMEOUT` | No | `PT5S` | Registry connection timeout |
+| `BLAZRA_REQUEST_TIMEOUT` | No | `PT15S` | Registry request timeout |
 | `BLAZRA_DRY_RUN` | No | `false` | Report updates without writing them |
 | `DOCKER_HUB_USERNAME` | No | — | Configure together with the token |
 | `DOCKER_HUB_TOKEN` | No | — | Scoped Docker Hub access token |
@@ -163,7 +185,8 @@ the update policy:
 
 - `model` owns validated, immutable domain values.
 - `service` owns image selection and update orchestration.
-- `registry` adapts the Docker Hub API.
+- `registry` routes Docker Hub to its dedicated adapter and other public images
+  to a bounded OCI Distribution adapter.
 - `repository` adapts Kubernetes with optimistic concurrency.
 - `runtime` schedules non-overlapping checks.
 - `config` validates all input before startup.

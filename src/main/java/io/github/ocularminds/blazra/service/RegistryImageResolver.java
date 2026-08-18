@@ -8,11 +8,11 @@ import io.github.ocularminds.blazra.model.VersionTag;
 import io.github.ocularminds.blazra.registry.RegistryClient;
 import io.github.ocularminds.blazra.registry.RegistryException;
 
-public final class DockerHubImageResolver implements ImageResolver {
+public final class RegistryImageResolver implements ImageResolver {
     private final RegistryClient registryClient;
     private final UpdatePolicy updatePolicy;
 
-    public DockerHubImageResolver(RegistryClient registryClient, UpdatePolicy updatePolicy) {
+    public RegistryImageResolver(RegistryClient registryClient, UpdatePolicy updatePolicy) {
         this.registryClient = Objects.requireNonNull(registryClient, "registry client is required");
         this.updatePolicy = Objects.requireNonNull(updatePolicy, "update policy is required");
     }
@@ -27,7 +27,7 @@ public final class DockerHubImageResolver implements ImageResolver {
         if (currentTag.isEmpty()) {
             return Optional.empty();
         }
-        return registryClient.listTags(reference.get().dockerHubRepository()).stream()
+        return registryClient.listTags(reference.get().registryRepository()).stream()
                 .map(VersionTag::parse)
                 .flatMap(Optional::stream)
                 .filter(candidate -> candidate.compareTo(currentTag.get()) > 0)

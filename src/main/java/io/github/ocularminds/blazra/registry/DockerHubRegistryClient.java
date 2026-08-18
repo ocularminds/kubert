@@ -16,16 +16,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.regex.Pattern;
 import io.github.ocularminds.blazra.model.RegistryCredentials;
+import io.github.ocularminds.blazra.model.RegistryRepository;
 
 public final class DockerHubRegistryClient implements RegistryClient {
     private static final URI DEFAULT_BASE_URI = URI.create("https://hub.docker.com/");
     private static final int MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
     private static final int MAX_PAGES = 20;
-    private static final Pattern REPOSITORY = Pattern.compile(
-            "[a-z0-9]+(?:[._-][a-z0-9]+)*/[a-z0-9]+(?:[._-][a-z0-9]+)*");
-
     private final HttpClient httpClient;
     private final ObjectMapper objectMapper;
     private final Optional<RegistryCredentials> credentials;
@@ -64,11 +61,11 @@ public final class DockerHubRegistryClient implements RegistryClient {
     }
 
     @Override
-    public List<String> listTags(String repository) throws RegistryException {
-        if (repository == null || !REPOSITORY.matcher(repository).matches()) {
-            throw new IllegalArgumentException("repository must contain a valid namespace and name");
+    public List<String> listTags(RegistryRepository repository) throws RegistryException {
+        if (repository == null || !repository.isDockerHub()) {
+            throw new IllegalArgumentException("a Docker Hub repository is required");
         }
-        String[] components = repository.split("/", 2);
+        String[] components = repository.path().split("/", 2);
         URI page = baseUri.resolve(
                 "v2/namespaces/" + components[0] + "/repositories/" + components[1]
                         + "/tags?page_size=100");
