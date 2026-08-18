@@ -6,6 +6,7 @@
 
 [![CI](https://github.com/ocularminds/kubert/actions/workflows/ci.yml/badge.svg)](https://github.com/ocularminds/kubert/actions/workflows/ci.yml)
 [![Coverage](https://codecov.io/gh/ocularminds/kubert/branch/master/graph/badge.svg)](https://codecov.io/gh/ocularminds/kubert)
+[![Docker Pulls](https://img.shields.io/docker/pulls/speedoo/kubert?logo=docker&logoColor=white)](https://hub.docker.com/r/speedoo/kubert)
 [![Apache 2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![Kubernetes 1.29+](https://img.shields.io/badge/Kubernetes-1.29%2B-326CE5?logo=kubernetes&logoColor=white)](https://kubernetes.io/docs/concepts/workloads/pods/sidecar-containers/)
 [![Java 17](https://img.shields.io/badge/Java-17-ED8B00?logo=openjdk&logoColor=white)](https://adoptium.net/)
