@@ -33,10 +33,10 @@ assert_contains "${test_dir}/default.yaml" "kind: Deployment"
 assert_contains "${test_dir}/default.yaml" "restartPolicy: Always"
 assert_contains "${test_dir}/default.yaml" "resourceNames:"
 assert_contains "${test_dir}/default.yaml" "- demo-blazra"
-assert_contains "${test_dir}/default.yaml" "helm.sh/chart: blazra-0.3.0"
+assert_contains "${test_dir}/default.yaml" "helm.sh/chart: blazra-0.3.1"
 assert_contains "${test_dir}/default.yaml" "app.kubernetes.io/name: blazra"
 assert_contains "${test_dir}/default.yaml" "- name: blazra"
-assert_contains "${test_dir}/default.yaml" "ghcr.io/ocularminds/blazra:0.3.0"
+assert_contains "${test_dir}/default.yaml" "ghcr.io/ocularminds/blazra:0.3.1"
 assert_contains "${test_dir}/default.yaml" "automountServiceAccountToken: false"
 assert_contains "${test_dir}/default.yaml" "runAsUser: 65532"
 assert_contains "${test_dir}/default.yaml" "defaultMode: 0444"
@@ -141,4 +141,4 @@ if helm template legacy-values "${chart_dir}" \
 fi
 
 helm package "${chart_dir}" --destination "${test_dir}" > /dev/null
-[[ -f "${test_dir}/blazra-0.3.0.tgz" ]] || fail "chart package was not created"
+[[ -f "${test_dir}/blazra-0.3.1.tgz" ]] || fail "chart package was not created"

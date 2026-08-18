@@ -27,11 +27,11 @@ Updates also preserve whether the current tag uses a `v` prefix.
 
 Each release publishes one `linux/amd64` and `linux/arm64` image manifest to
 GitHub Container Registry and `docker.io/speedoo/blazra`. Google Artifact
-Registry and Azure Container Registry are included when their OIDC settings
-are configured. Version, major/minor, and `latest` tags all point to the same
-release build. The Helm chart remains available from the GHCR OCI chart
-repository. During the rename transition, the same image is also published to
-`ghcr.io/ocularminds/kubert` and `docker.io/speedoo/kubert`.
+Registry, Azure Container Registry, and Amazon ECR Public are included when
+their OIDC settings are configured. Version, major/minor, and `latest` tags all
+point to the same release build. The Helm chart remains available from the GHCR
+OCI chart repository. During the rename transition, the same image is also
+published to `ghcr.io/ocularminds/kubert` and `docker.io/speedoo/kubert`.
 
 Exact image references and their shared manifest digest are attached to each
 GitHub Release as `IMAGES.txt`. See [the release guide](docs/releasing.md) for
@@ -53,7 +53,7 @@ Helm 4 is required for an OCI install.
 
 ```shell
 helm install demo oci://ghcr.io/ocularminds/charts/blazra \
-  --version 0.3.0 \
+  --version 0.3.1 \
   --namespace apps \
   --create-namespace \
   --set workload.image.repository=nginx \

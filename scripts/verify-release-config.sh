@@ -54,6 +54,10 @@ require_complete_group Azure \
   AZURE_CLIENT_ID \
   AZURE_TENANT_ID \
   AZURE_SUBSCRIPTION_ID
+require_complete_group "Amazon ECR Public" \
+  AWS_ACCOUNT_ID \
+  AWS_ROLE_TO_ASSUME \
+  ECR_PUBLIC_REGISTRY_ALIAS
 
 require_match() {
   local value_name="$1"
@@ -96,6 +100,19 @@ fi
 if [[ -n "${ACR_LOGIN_SERVER:-}" ]]; then
   require_match ACR_LOGIN_SERVER "${ACR_LOGIN_SERVER}" '^[a-z0-9]+\.azurecr\.io$'
   require_exact ACR_IMAGE "${ACR_IMAGE:-}" "${ACR_LOGIN_SERVER}/blazra"
+fi
+if [[ -n "${AWS_ROLE_TO_ASSUME:-}" ]]; then
+  require_match AWS_ACCOUNT_ID "${AWS_ACCOUNT_ID}" '^[0-9]{12}$'
+  require_match AWS_ROLE_TO_ASSUME "${AWS_ROLE_TO_ASSUME}" \
+    "^arn:aws:iam::${AWS_ACCOUNT_ID}:role/[-A-Za-z0-9+=,.@_/]+$"
+  require_match ECR_PUBLIC_REGISTRY_ALIAS "${ECR_PUBLIC_REGISTRY_ALIAS}" \
+    '^[a-z][a-z0-9]+([._-][a-z0-9]+)*$'
+  if (( ${#ECR_PUBLIC_REGISTRY_ALIAS} > 50 )); then
+    echo "Invalid release environment value: ECR_PUBLIC_REGISTRY_ALIAS" >&2
+    exit 1
+  fi
+  require_exact ECR_PUBLIC_IMAGE "${ECR_PUBLIC_IMAGE:-}" \
+    "public.ecr.aws/${ECR_PUBLIC_REGISTRY_ALIAS}/blazra"
 fi
 
 version="${RELEASE_TAG#v}"

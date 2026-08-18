@@ -6,7 +6,7 @@ validator="${project_root}/scripts/verify-release-config.sh"
 release_workflow="${project_root}/.github/workflows/release.yml"
 
 core_environment=(
-  RELEASE_TAG=v0.3.0
+  RELEASE_TAG=v0.3.1
   GITHUB_REPOSITORY=ocularminds/blazra
   GHCR_IMAGE=ghcr.io/ocularminds/blazra
   GHCR_LEGACY_IMAGE=ghcr.io/ocularminds/kubert
@@ -27,6 +27,10 @@ cloud_environment=(
   AZURE_CLIENT_ID=test-client-id
   AZURE_TENANT_ID=test-tenant-id
   AZURE_SUBSCRIPTION_ID=test-subscription-id
+  AWS_ACCOUNT_ID=123456789012
+  AWS_ROLE_TO_ASSUME=arn:aws:iam::123456789012:role/blazra-release
+  ECR_PUBLIC_REGISTRY_ALIAS=ocularminds
+  ECR_PUBLIC_IMAGE=public.ecr.aws/ocularminds/blazra
 )
 
 run_core_validator() {
@@ -70,6 +74,9 @@ partial_cloud_values=(
   'AZURE_CLIENT_ID=test-client-id'
   'AZURE_TENANT_ID=test-tenant-id'
   'AZURE_SUBSCRIPTION_ID=test-subscription-id'
+  'AWS_ACCOUNT_ID=123456789012'
+  'AWS_ROLE_TO_ASSUME=arn:aws:iam::123456789012:role/blazra-release'
+  'ECR_PUBLIC_REGISTRY_ALIAS=ocularminds'
 )
 for partial_value in "${partial_cloud_values[@]}"; do
   if run_core_validator "${partial_value}"; then
@@ -80,8 +87,8 @@ for partial_value in "${partial_cloud_values[@]}"; do
 done
 
 invalid_values=(
-  'RELEASE_TAG=0.3.0'
-  'RELEASE_TAG=v0.3.0-rc.1'
+  'RELEASE_TAG=0.3.1'
+  'RELEASE_TAG=v0.3.1-rc.1'
   'GITHUB_REPOSITORY=ocularminds/kubert'
   'GHCR_IMAGE=ghcr.io/ocularminds/kubert'
   'GHCR_LEGACY_IMAGE=ghcr.io/ocularminds/blazra'
@@ -96,6 +103,14 @@ invalid_values=(
   'ACR_LOGIN_SERVER=https://example.azurecr.io'
   'ACR_LOGIN_SERVER=example.azurecr.io/path'
   'ACR_IMAGE=ocularmindsblazra.azurecr.io/kubert'
+  'AWS_ACCOUNT_ID=1234'
+  'AWS_ROLE_TO_ASSUME=arn:aws:iam::210987654321:role/blazra-release'
+  'AWS_ROLE_TO_ASSUME=arn:aws:iam::123456789012:user/blazra-release'
+  'ECR_PUBLIC_REGISTRY_ALIAS=a'
+  'ECR_PUBLIC_REGISTRY_ALIAS=AWS-invalid'
+  'ECR_PUBLIC_REGISTRY_ALIAS=a12345678901234567890123456789012345678901234567890'
+  'ECR_PUBLIC_IMAGE='
+  'ECR_PUBLIC_IMAGE=public.ecr.aws/ocularminds/kubert'
 )
 for invalid_value in "${invalid_values[@]}"; do
   if run_full_validator "${invalid_value}"; then
@@ -120,8 +135,16 @@ workflow_expectations=(
   'DOCKERHUB_LEGACY_IMAGE: docker.io/speedoo/kubert'
   'GAR_IMAGE: ${{ vars.GAR_REGISTRY }}/${{ vars.GAR_PROJECT_ID }}/${{ vars.GAR_REPOSITORY }}/blazra'
   'ACR_IMAGE: ${{ vars.ACR_LOGIN_SERVER }}/blazra'
+  'ECR_PUBLIC_IMAGE: public.ecr.aws/${{ vars.ECR_PUBLIC_REGISTRY_ALIAS }}/blazra'
+  'uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3'
+  'uses: aws-actions/amazon-ecr-login@d539f0932e70871a027e9d5a9d8fc38589180a64 # v2.1.6'
+  'allowed-account-ids: ${{ vars.AWS_ACCOUNT_ID }}'
+  'role-duration-seconds: 1800'
+  'mask-aws-account-id: true'
   'echo "${GHCR_LEGACY_IMAGE}"'
   'echo "${DOCKERHUB_LEGACY_IMAGE}"'
+  'echo "${ECR_PUBLIC_IMAGE}"'
+  'echo "${ECR_PUBLIC_IMAGE}:${RELEASE_TAG#v}"'
   'helm package charts/blazra --destination dist'
   '--title "Blazra ${RELEASE_TAG#v}"'
 )
@@ -132,5 +155,14 @@ for expected_value in "${workflow_expectations[@]}"; do
   fi
   test_count=$((test_count + 1))
 done
+
+# The search string is a literal expression in the workflow.
+# shellcheck disable=SC2016
+ecr_destination_count="$(grep -Fc 'echo "${ECR_PUBLIC_IMAGE}' "${release_workflow}")"
+if [[ "${ecr_destination_count}" != "2" ]]; then
+  echo "Expected ECR Public in image destinations and release assets" >&2
+  exit 1
+fi
+test_count=$((test_count + 1))
 
 echo "Release configuration tests passed: ${test_count}"
