@@ -116,7 +116,7 @@ jobs:
         run: |
           set -euo pipefail
           {
-            echo 'images<<KUBERT_IMAGES'
+            echo 'images<<BLAZRA_IMAGES'
             echo "${GHCR_IMAGE}"
             echo "${DOCKERHUB_IMAGE}"
             if [[ -n "${GAR_REGISTRY}" ]]; then
@@ -125,7 +125,7 @@ jobs:
             if [[ -n "${ACR_LOGIN_SERVER}" ]]; then
               echo "${ACR_IMAGE}"
             fi
-            echo 'KUBERT_IMAGES'
+            echo 'BLAZRA_IMAGES'
           } >> "${GITHUB_OUTPUT}"
 
       - name: Create image metadata
@@ -169,11 +169,11 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p dist
-          helm package charts/kubert --destination dist
+          helm package charts/blazra --destination dist
           printf '%s' "${GHCR_TOKEN}" | helm registry login ghcr.io \
             --username "${GITHUB_ACTOR}" \
             --password-stdin
-          helm push dist/kubert-*.tgz oci://ghcr.io/ocularminds/charts
+          helm push dist/blazra-*.tgz oci://ghcr.io/ocularminds/charts
 
       - name: Create release assets
         env:
@@ -196,7 +196,7 @@ jobs:
           } > dist/IMAGES.txt
           (
             cd dist
-            sha256sum kubert-*.tgz IMAGES.txt > SHA256SUMS
+            sha256sum blazra-*.tgz IMAGES.txt > SHA256SUMS
           )
 
       - name: Create GitHub release

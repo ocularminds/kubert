@@ -28,7 +28,7 @@ jobs:
           rhysd/actionlint@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667
           -color
       - name: Check shell scripts
-        run: shellcheck charts/kubert/tests/render.sh scripts/*.sh scripts/tests/*.sh
+        run: shellcheck charts/blazra/tests/render.sh scripts/*.sh scripts/tests/*.sh
       - name: Test release configuration validation
         run: scripts/tests/verify-release-config-test.sh
 
@@ -80,7 +80,7 @@ jobs:
         with:
           version: v4.2.0
       - name: Test chart rendering and schema
-        run: charts/kubert/tests/render.sh
+        run: charts/blazra/tests/render.sh
 
   container:
     name: Build and scan container

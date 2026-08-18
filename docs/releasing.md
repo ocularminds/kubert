@@ -59,7 +59,7 @@ authenticating or publishing.
 
 ## Publish a version
 
-Update both `version` and `appVersion` in `charts/kubert/Chart.yaml`, merge the
+Update both `version` and `appVersion` in `charts/blazra/Chart.yaml`, merge the
 change, and create a matching protected tag from `master`:
 
 ```shell
@@ -90,7 +90,7 @@ resolve the version tag to the manifest digest recorded in that file:
 
 ```shell
 docker buildx imagetools inspect <registry-reference>:0.2.0
-helm show chart oci://ghcr.io/ocularminds/charts/kubert --version 0.2.0
+helm show chart oci://ghcr.io/ocularminds/charts/blazra --version 0.2.0
 ```
 
 Finally, perform an unauthenticated pull from a clean Docker configuration to

@@ -2,9 +2,9 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "kubert.fullname" . }}
+  name: {{ include "blazra.fullname" . }}
   labels:
-    {{- include "kubert.labels" . | nindent 4 }}
+    {{- include "blazra.labels" . | nindent 4 }}
 spec:
   type: {{ .Values.service.type }}
   ports:
@@ -13,5 +13,5 @@ spec:
       targetPort: {{ .Values.service.targetPort }}
       protocol: TCP
   selector:
-    {{- include "kubert.selectorLabels" . | nindent 4 }}
+    {{- include "blazra.selectorLabels" . | nindent 4 }}
 {{- end }}

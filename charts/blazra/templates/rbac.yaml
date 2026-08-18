@@ -2,16 +2,16 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: {{ include "kubert.fullname" . }}
+  name: {{ include "blazra.fullname" . }}
   labels:
-    {{- include "kubert.labels" . | nindent 4 }}
+    {{- include "blazra.labels" . | nindent 4 }}
 rules:
   - apiGroups:
       - apps
     resources:
       - deployments
     resourceNames:
-      - {{ include "kubert.fullname" . }}
+      - {{ include "blazra.fullname" . }}
     verbs:
       - get
       - patch
@@ -20,15 +20,15 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: {{ include "kubert.fullname" . }}
+  name: {{ include "blazra.fullname" . }}
   labels:
-    {{- include "kubert.labels" . | nindent 4 }}
+    {{- include "blazra.labels" . | nindent 4 }}
 subjects:
   - kind: ServiceAccount
-    name: {{ include "kubert.serviceAccountName" . }}
+    name: {{ include "blazra.serviceAccountName" . }}
     namespace: {{ .Release.Namespace }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: {{ include "kubert.fullname" . }}
+  name: {{ include "blazra.fullname" . }}
 {{- end }}

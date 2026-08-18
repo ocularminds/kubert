@@ -1,8 +1,8 @@
-{{- define "kubert.name" -}}
+{{- define "blazra.name" -}}
 {{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
-{{- define "kubert.fullname" -}}
+{{- define "blazra.fullname" -}}
 {{- if .Values.fullnameOverride }}
 {{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
 {{- else }}
@@ -15,41 +15,41 @@
 {{- end }}
 {{- end }}
 
-{{- define "kubert.chart" -}}
+{{- define "blazra.chart" -}}
 {{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
-{{- define "kubert.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "kubert.name" . }}
+{{- define "blazra.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "blazra.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
-{{- define "kubert.labels" -}}
-helm.sh/chart: {{ include "kubert.chart" . }}
-{{ include "kubert.selectorLabels" . }}
+{{- define "blazra.labels" -}}
+helm.sh/chart: {{ include "blazra.chart" . }}
+{{ include "blazra.selectorLabels" . }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- end }}
 
-{{- define "kubert.podLabels" -}}
-{{- $required := include "kubert.selectorLabels" . | fromYaml }}
+{{- define "blazra.podLabels" -}}
+{{- $required := include "blazra.selectorLabels" . | fromYaml }}
 {{- toYaml (mergeOverwrite (deepCopy .Values.podLabels) $required) }}
 {{- end }}
 
-{{- define "kubert.podAnnotations" -}}
+{{- define "blazra.podAnnotations" -}}
 {{- $required := dict "kubectl.kubernetes.io/default-container" .Values.workload.containerName }}
 {{- toYaml (mergeOverwrite (deepCopy .Values.podAnnotations) $required) }}
 {{- end }}
 
-{{- define "kubert.serviceAccountName" -}}
+{{- define "blazra.serviceAccountName" -}}
 {{- if .Values.serviceAccount.create }}
-{{- default (include "kubert.fullname" .) .Values.serviceAccount.name }}
+{{- default (include "blazra.fullname" .) .Values.serviceAccount.name }}
 {{- else }}
 {{- required "serviceAccount.name is required when serviceAccount.create is false" .Values.serviceAccount.name }}
 {{- end }}
 {{- end }}
 
-{{- define "kubert.workloadImage" -}}
+{{- define "blazra.workloadImage" -}}
 {{- if .Values.workload.image.digest }}
 {{- printf "%s@%s" .Values.workload.image.repository .Values.workload.image.digest }}
 {{- else }}
@@ -57,11 +57,11 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- end }}
 {{- end }}
 
-{{- define "kubert.sidecarImage" -}}
-{{- if .Values.kubert.image.digest }}
-{{- printf "%s@%s" .Values.kubert.image.repository .Values.kubert.image.digest }}
+{{- define "blazra.sidecarImage" -}}
+{{- if .Values.blazra.image.digest }}
+{{- printf "%s@%s" .Values.blazra.image.repository .Values.blazra.image.digest }}
 {{- else }}
-{{- $tag := default .Chart.AppVersion .Values.kubert.image.tag }}
-{{- printf "%s:%s" .Values.kubert.image.repository $tag }}
+{{- $tag := default .Chart.AppVersion .Values.blazra.image.tag }}
+{{- printf "%s:%s" .Values.blazra.image.repository $tag }}
 {{- end }}
 {{- end }}

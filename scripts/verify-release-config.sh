@@ -73,7 +73,7 @@ if [[ -n "${ACR_LOGIN_SERVER:-}" ]]; then
 fi
 
 version="${RELEASE_TAG#v}"
-chart_file="${project_root}/charts/kubert/Chart.yaml"
+chart_file="${project_root}/charts/blazra/Chart.yaml"
 if ! grep -Fxq "version: ${version}" "${chart_file}"; then
   echo "Chart version does not match ${RELEASE_TAG}" >&2
   exit 1
