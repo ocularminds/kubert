@@ -2,13 +2,13 @@ apiVersion: v2
 name: blazra
 description: Run Blazra as a native sidecar beside a single-replica workload
 type: application
-version: 0.2.0
-appVersion: "0.2.0"
+version: 0.3.0
+appVersion: "0.3.0"
 kubeVersion: ">=1.29.0-0"
-home: https://github.com/ocularminds/kubert
-icon: https://raw.githubusercontent.com/ocularminds/kubert/master/docs/kubert.svg
+home: https://github.com/ocularminds/blazra
+icon: https://raw.githubusercontent.com/ocularminds/blazra/master/docs/blazra.svg
 sources:
-  - https://github.com/ocularminds/kubert
+  - https://github.com/ocularminds/blazra
 maintainers:
   - name: Ocular Minds
     url: https://github.com/ocularminds
@@ -16,4 +16,4 @@ annotations:
   artifacthub.io/license: Apache-2.0
   artifacthub.io/containsSecurityUpdates: "false"
   artifacthub.io/prerelease: "false"
-  org.opencontainers.image.source: https://github.com/ocularminds/kubert
+  org.opencontainers.image.source: https://github.com/ocularminds/blazra
